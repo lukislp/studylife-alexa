@@ -1,0 +1,48 @@
+# Public exposure via Tailscale Funnel - same mechanism as studylife-mcp's own
+# k8s/07-tailscale-funnel.yaml, with its own dedicated tag rather than reusing
+# tag:studylife-mcp-funnel, so each publicly-reachable service stays independently scoped at
+# the tailnet ACL level (login.tailscale.com/admin/acls/file):
+#
+#   - The Tailscale Kubernetes operator's default proxy tag (tag:k8s) does NOT have the
+#     "funnel" node capability - only tag:studylife-mcp-funnel and (as of this file)
+#     tag:studylife-alexa-funnel do (see the tagOwners/nodeAttrs blocks in the tailnet
+#     policy).
+#   - tailscale.com/tags below overrides this Ingress's proxy away from the (funnel-incapable)
+#     default tag to tag:studylife-alexa-funnel - the only proxy in the cluster tagged that
+#     way.
+#
+# The operator's proxy StatefulSet for this Ingress runs in the "tailscale" namespace (not
+# this one) - k8s/04-network-policies.yaml's allow-tailscale-to-studylife-alexa rule is what
+# actually lets its traffic reach the pod.
+#
+# Explicit path allowlist, NOT a defaultBackend: only /alexa/skill (the actual Alexa webhook
+# endpoint Amazon's servers call) is reachable from the public internet. /healthz is
+# deliberately absent - it's operator-only, has no reason to be internet-facing, and stays
+# reachable only via a port-forward/exec if ever needed.
+#
+# Bootstrap-only, NOT Flux-managed - same RBAC reasoning as k8s/00-namespace.yaml/
+# k8s/02-secret.yaml/k8s/04-network-policies.yaml (kustomize-controller's ClusterRole has no
+# permission on the networking.k8s.io Ingress resource at all).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: studylife-alexa-funnel
+  namespace: studylife-alexa
+  annotations:
+    tailscale.com/funnel: "true"
+    tailscale.com/tags: "tag:studylife-alexa-funnel"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - http:
+        paths:
+          - path: /alexa/skill
+            # Prefix, not Exact - the Tailscale operator's own path matching is prefix-only
+            # regardless of pathType (docs.tailscale.com/kubernetes-operator/reference/
+            # limitations), same finding studylife-mcp's own Ingress documents. Harmless here
+            # since /alexa/skill is the only path in this allowlist.
+            pathType: Prefix
+            backend: {service: {name: studylife-alexa, port: {number: 8000}}}
+  tls:
+    - hosts:
+        - studylife-alexa
