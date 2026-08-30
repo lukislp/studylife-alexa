@@ -28,7 +28,12 @@ COPY README.md ./
 COPY src ./src
 RUN uv sync --frozen --no-dev
 
-RUN useradd --create-home --uid 1000 appuser
+# /app/data must exist (and be owned by appuser) before the named volume mounts over it -
+# otherwise Docker/Kubernetes auto-creates the mount point as root, and the non-root
+# appuser below can't open its OAuth SQLite store there. /app itself also needs to be
+# appuser-owned: the default ALEXA_OAUTH_DB_PATH ("oauth.db", relative) resolves under
+# /app for anyone running this image without a data volume at all.
+RUN mkdir -p /app/data && useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 ENV PATH="/app/.venv/bin:$PATH"
