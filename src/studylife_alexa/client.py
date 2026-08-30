@@ -85,15 +85,58 @@ class StudyLifeClient:
         return list(response.json())
 
 
-def list_courses_sync(base_url: str, api_key: str) -> list[dict[str, object]]:
-    """Plain httpx.Client (not AsyncClient) counterpart to StudyLifeClient.list_courses,
-    for handlers.py's use - see oauth_store.load_access_token_sync's docstring for why
-    the skill-request path has to stay synchronous end to end."""
+def _sync_get(
+    base_url: str, api_key: str, path: str, params: dict[str, object] | None = None
+) -> httpx.Response:
+    """Shared plain-httpx GET for every *_sync StudyLife call below - see
+    oauth_store.load_access_token_sync's docstring for why the skill-request path has to
+    stay synchronous end to end (AsyncClient/StudyLifeClient above is for the FastAPI
+    routes, which don't hit this restriction)."""
     response = httpx.get(
-        f"{base_url.rstrip('/')}/api/courses",
+        f"{base_url.rstrip('/')}{path}",
         headers={"X-Api-Key": api_key},
+        params=params,
         timeout=10.0,
     )
     if response.status_code >= 400:
         raise StudyLifeApiError(response.status_code, response.text)
-    return list(response.json())
+    return response
+
+
+def list_courses_sync(base_url: str, api_key: str) -> list[dict[str, object]]:
+    return list(_sync_get(base_url, api_key, "/api/courses").json())
+
+
+def get_timer_state_sync(base_url: str, api_key: str) -> dict[str, object]:
+    return dict(_sync_get(base_url, api_key, "/api/timerstate").json())
+
+
+def get_session_history_sync(
+    base_url: str, api_key: str, days: int | None = None
+) -> list[dict[str, object]]:
+    params: dict[str, object] = {"days": days} if days is not None else {}
+    return list(_sync_get(base_url, api_key, "/api/sessions/history", params).json())
+
+
+def list_course_goals_sync(base_url: str, api_key: str) -> list[dict[str, object]]:
+    return list(_sync_get(base_url, api_key, "/api/coursegoals").json())
+
+
+def list_study_programs_sync(base_url: str, api_key: str) -> list[dict[str, object]]:
+    return list(_sync_get(base_url, api_key, "/api/studyprograms").json())
+
+
+def search_notes_sync(base_url: str, api_key: str, query: str) -> list[dict[str, object]]:
+    return list(_sync_get(base_url, api_key, "/api/notes/search", {"q": query}).json())
+
+
+def create_note_sync(base_url: str, api_key: str, title: str, content: str) -> dict[str, object]:
+    response = httpx.post(
+        f"{base_url.rstrip('/')}/api/notes",
+        headers={"X-Api-Key": api_key},
+        json={"title": title, "content": content},
+        timeout=10.0,
+    )
+    if response.status_code >= 400:
+        raise StudyLifeApiError(response.status_code, response.text)
+    return dict(response.json())

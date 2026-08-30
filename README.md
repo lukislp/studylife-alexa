@@ -7,11 +7,27 @@ the focus timer and study sessions, account-linked to your own StudyLife instanc
 
 - `LaunchRequest` - welcome message
 - `TestIntent` - confirms the connection is working, no account needed
-- `CoursesIntent` - the first real StudyLife-backed intent ("wie viele Kurse habe ich"),
-  proving account linking end to end
-- `AMAZON.HelpIntent` / `AMAZON.CancelIntent` / `AMAZON.StopIntent` - built-ins
+- `CoursesIntent` - "wie viele Kurse habe ich"
+- `TimerStatusIntent` - "läuft mein Fokus-Timer" (read-only - `TimerState` has no
+  publicly-grantable start/stop scope, only `Get`)
+- `StudyTimeIntent` - "wie lange habe ich {heute/diese Woche/diesen Monat} gelernt"
+  (custom `TimePeriod` slot)
+- `RecentSessionsIntent` - "zeig meine letzten Lernsessions"
+- `CourseGoalsIntent` - "was sind meine Lernziele"
+- `StudyProgramsIntent` - "zeig meine Studiengänge"
+- `SearchNotesIntent` - "suche Notizen zu {SearchQuery}"
+- `CreateNoteIntent` - "erstelle eine Notiz {NoteContent}"
+- `AMAZON.HelpIntent` / `AMAZON.FallbackIntent` / `AMAZON.CancelIntent` /
+  `AMAZON.StopIntent` - built-ins
 
-More StudyLife-backed intents (focus timer status/start, study time) come next.
+Every StudyLife-backed intent shares the same account-linking resolution
+(`_resolve_api_key`/`_link_account_response` in `handlers.py`) - falls back to a
+`LinkAccountCard` prompt if the account isn't linked yet or the link expired.
+
+Deliberately not exposed via voice: deleting/editing notes, sessions, or course
+goals - too easy to target the wrong item without a visual confirmation step. Would
+need a real confirmation-dialog design first, not just wiring up the existing
+`Delete`/`Update` scopes.
 
 ## Development
 
@@ -35,8 +51,9 @@ uses), rather than exposing StudyLife's login to Alexa directly.
 1. Register this skill as an ordinary add-on on your own
    [studylife-developers](https://github.com/lukislp/studylife-developers) instance:
    **Client ID**: `studylife-alexa`, **Allowed redirect URIs**:
-   `https://<your-public-url>/oauth/studylife/callback`, whichever scopes you want the
-   skill to use.
+   `https://<your-public-url>/oauth/studylife/callback`. Scopes, matching the intents
+   in [Status](#status) above: Read the course catalog, Read live timer state, Read
+   session history, Read course goals, Read study programs, Search notes, Create notes.
 2. Generate a client ID/secret pair for Alexa itself and a token encryption key:
    ```bash
    python -c "import secrets; print(secrets.token_urlsafe(32))"  # x2, for ALEXA_CLIENT_ID/SECRET
