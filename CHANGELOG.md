@@ -1,3 +1,10 @@
+# [0.4.0](https://github.com/lukislp/studylife-alexa/compare/v0.3.0...v0.4.0) (2026-08-30)
+
+
+### Features
+
+* account linking via a wrapper around StudyLife's connect flow ([4899f6c](https://github.com/lukislp/studylife-alexa/commit/4899f6c73e386f4e0cb9c30b0637fd0afed3fc93))
+
 # [0.3.0](https://github.com/lukislp/studylife-alexa/compare/v0.2.0...v0.3.0) (2026-08-30)
 
 
