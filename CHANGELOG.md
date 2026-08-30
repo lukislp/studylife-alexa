@@ -1,3 +1,10 @@
+## [0.6.2](https://github.com/lukislp/studylife-alexa/compare/v0.6.1...v0.6.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* distinguish "not found" from "built-in program has no detail endpoint" ([a8bfe91](https://github.com/lukislp/studylife-alexa/commit/a8bfe91c125bfd3e82a6f07262f8d4f8acb392d9))
+
 ## [0.6.1](https://github.com/lukislp/studylife-alexa/compare/v0.6.0...v0.6.1) (2026-08-30)
 
 
