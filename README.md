@@ -50,8 +50,10 @@ uses), rather than exposing StudyLife's login to Alexa directly.
      accepted, see `oauth_provider.py`'s `_extract_client_credentials`)
    - Scope: `studylife` (any non-empty value works - this server doesn't currently
      differentiate scopes)
-   - Copy the **redirect URL(s)** Alexa now shows into `ALEXA_REDIRECT_URI`
-4. Set `ALEXA_PUBLIC_URL`, `ALEXA_CLIENT_ID`, `ALEXA_CLIENT_SECRET`, `ALEXA_REDIRECT_URI`,
+   - Copy **all three redirect URLs** Alexa now shows (one per regional companion app -
+     see `config.py`'s own comment on `alexa_redirect_uris`) into `ALEXA_REDIRECT_URIS`,
+     comma-separated
+4. Set `ALEXA_PUBLIC_URL`, `ALEXA_CLIENT_ID`, `ALEXA_CLIENT_SECRET`, `ALEXA_REDIRECT_URIS`,
    `STUDYLIFE_CONNECT_URL`, `STUDYLIFE_BASE_URL`, and `ALEXA_TOKEN_ENCRYPTION_KEY` (see
    `.env.example`).
 5. In the Alexa app (or the console's Test tab), linking the account opens

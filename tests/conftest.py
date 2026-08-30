@@ -7,7 +7,11 @@ os.environ["ALEXA_VERIFY_REQUESTS"] = "false"
 os.environ["ALEXA_PUBLIC_URL"] = "https://studylife-alexa.example.com"
 os.environ["ALEXA_CLIENT_ID"] = "test-alexa-client-id"
 os.environ["ALEXA_CLIENT_SECRET"] = "test-alexa-client-secret"
-os.environ["ALEXA_REDIRECT_URI"] = "https://pitangui.amazon.com/api/skill/link/TEST"
+os.environ["ALEXA_REDIRECT_URIS"] = (
+    "https://pitangui.amazon.com/api/skill/link/TEST,"
+    "https://layla.amazon.com/api/skill/link/TEST,"
+    "https://alexa.amazon.co.jp/api/skill/link/TEST"
+)
 os.environ["STUDYLIFE_CONNECT_URL"] = "https://studylife.example.com"
 os.environ["STUDYLIFE_BASE_URL"] = "https://studylife.example.com"
 # A real (if throwaway) Fernet key, not the module's own random-fallback - deterministic
