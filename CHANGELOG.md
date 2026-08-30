@@ -1,3 +1,10 @@
+## [0.5.2](https://github.com/lukislp/studylife-alexa/compare/v0.5.1...v0.5.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* German singular/plural grammar, and "letzte Woche" as its own period ([0e56050](https://github.com/lukislp/studylife-alexa/commit/0e560507eac7deb914bb338cd35ff2c78ede0a74))
+
 ## [0.5.1](https://github.com/lukislp/studylife-alexa/compare/v0.5.0...v0.5.1) (2026-08-30)
 
 
