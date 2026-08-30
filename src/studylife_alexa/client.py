@@ -126,6 +126,23 @@ def list_study_programs_sync(base_url: str, api_key: str) -> list[dict[str, obje
     return list(_sync_get(base_url, api_key, "/api/studyprograms").json())
 
 
+def get_study_program_sync(base_url: str, api_key: str, program_id: int) -> dict[str, object]:
+    return dict(_sync_get(base_url, api_key, f"/api/studyprograms/{program_id}").json())
+
+
+def list_all_sessions_sync(base_url: str, api_key: str) -> list[dict[str, object]]:
+    """Unlike get_session_history_sync (/api/sessions/history, a trailing window from
+    now), this hits plain /api/sessions - unbounded, includes future/scheduled sessions
+    too (SessionsController.GetAll's own comment: "the client fetches this once and does
+    all week/day navigation itself" - it's the same endpoint studylife's own calendar
+    view uses)."""
+    return list(_sync_get(base_url, api_key, "/api/sessions").json())
+
+
+def list_notes_sync(base_url: str, api_key: str) -> list[dict[str, object]]:
+    return list(_sync_get(base_url, api_key, "/api/notes").json())
+
+
 def search_notes_sync(base_url: str, api_key: str, query: str) -> list[dict[str, object]]:
     return list(_sync_get(base_url, api_key, "/api/notes/search", {"q": query}).json())
 

@@ -678,3 +678,387 @@ async def test_create_note_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -
     )
 
     assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+
+
+# ---------------------------------------------------------------------------
+# NextSessionIntent
+# ---------------------------------------------------------------------------
+
+
+def test_next_session_intent_without_linked_account_prompts_to_link() -> None:
+    body = _invoke("NextSessionIntent", access_token=None)
+
+    assert "verknüpft" in _speech(body)
+    assert body["response"]["card"]["type"] == "LinkAccount"
+
+
+async def test_next_session_intent_picks_nearest_future_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression-shaped: the sessions list is neither sorted nor all-future (it comes
+    from /api/sessions, unbounded) - the handler must pick the chronologically nearest
+    future session, not the first future one in list order and not a past one."""
+    await _link_account("next-session-token", "fake-api-key")
+
+    past_start = datetime.now() - timedelta(days=3)
+    far_future_start = datetime.now() + timedelta(days=10, hours=2)
+    near_future_start = datetime.now() + timedelta(days=2, hours=5, minutes=15)
+    another_past_start = datetime.now() - timedelta(hours=1)
+
+    def fake_list_all_sessions_sync(base_url: str, api_key: str) -> list[dict[str, object]]:
+        return [
+            {
+                "startTime": far_future_start.isoformat(),
+                "endTime": (far_future_start + timedelta(hours=1)).isoformat(),
+                "courseName": "Statistik",
+            },
+            {
+                "startTime": past_start.isoformat(),
+                "endTime": (past_start + timedelta(hours=1)).isoformat(),
+                "courseName": "AltesFach",
+            },
+            {
+                "startTime": near_future_start.isoformat(),
+                "endTime": (near_future_start + timedelta(hours=1)).isoformat(),
+                "courseName": "Analysis",
+            },
+            {
+                "startTime": another_past_start.isoformat(),
+                "endTime": (another_past_start + timedelta(hours=1)).isoformat(),
+                "courseName": "NochAelter",
+            },
+        ]
+
+    monkeypatch.setattr(handlers, "list_all_sessions_sync", fake_list_all_sessions_sync)
+
+    body = _invoke("NextSessionIntent", access_token="next-session-token")
+
+    expected = (
+        f"Deine nächste Lernsession ist am {near_future_start:%d.%m.} "
+        f"um {near_future_start:%H:%M} Uhr für Analysis."
+    )
+    assert expected in _speech(body)
+
+
+async def test_next_session_intent_success_keeps_session_open(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Regression: a successful answer must keep the session open (a follow-up question
+    # shouldn't need "Alexa, öffne study life" said again) - shouldEndSession is only
+    # present in the JSON at all once something (like .ask()) actually sets it.
+    await _link_account("next-session-token-open", "fake-api-key")
+    future_start = datetime.now() + timedelta(days=1)
+
+    monkeypatch.setattr(
+        handlers,
+        "list_all_sessions_sync",
+        lambda base_url, api_key: [
+            {
+                "startTime": future_start.isoformat(),
+                "endTime": (future_start + timedelta(hours=1)).isoformat(),
+            }
+        ],
+    )
+
+    body = _invoke("NextSessionIntent", access_token="next-session-token-open")
+
+    assert body["response"]["shouldEndSession"] is False
+
+
+async def test_next_session_intent_with_only_past_sessions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _link_account("next-session-token-only-past", "fake-api-key")
+    past_start = datetime.now() - timedelta(days=1)
+
+    monkeypatch.setattr(
+        handlers,
+        "list_all_sessions_sync",
+        lambda base_url, api_key: [
+            {
+                "startTime": past_start.isoformat(),
+                "endTime": (past_start + timedelta(hours=1)).isoformat(),
+            }
+        ],
+    )
+
+    body = _invoke("NextSessionIntent", access_token="next-session-token-only-past")
+
+    assert "Du hast aktuell keine geplante Lernsession in StudyLife." in _speech(body)
+
+
+async def test_next_session_intent_with_no_sessions(monkeypatch: pytest.MonkeyPatch) -> None:
+    await _link_account("next-session-token-empty", "fake-api-key")
+    monkeypatch.setattr(handlers, "list_all_sessions_sync", lambda base_url, api_key: [])
+
+    body = _invoke("NextSessionIntent", access_token="next-session-token-empty")
+
+    assert "Du hast aktuell keine geplante Lernsession in StudyLife." in _speech(body)
+
+
+async def test_next_session_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from studylife_alexa.client import StudyLifeApiError
+
+    await _link_account("next-session-token-unreachable", "fake-api-key")
+
+    def _raise(base_url: str, api_key: str) -> list[dict[str, object]]:
+        raise StudyLifeApiError(503, "down")
+
+    monkeypatch.setattr(handlers, "list_all_sessions_sync", _raise)
+
+    body = _invoke("NextSessionIntent", access_token="next-session-token-unreachable")
+
+    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+
+
+# ---------------------------------------------------------------------------
+# NotesOverviewIntent
+# ---------------------------------------------------------------------------
+
+
+def test_notes_overview_intent_without_linked_account_prompts_to_link() -> None:
+    body = _invoke("NotesOverviewIntent", access_token=None)
+
+    assert "verknüpft" in _speech(body)
+    assert body["response"]["card"]["type"] == "LinkAccount"
+
+
+async def test_notes_overview_intent_with_several_notes(monkeypatch: pytest.MonkeyPatch) -> None:
+    await _link_account("notes-overview-token", "fake-api-key")
+    monkeypatch.setattr(
+        handlers,
+        "list_notes_sync",
+        lambda base_url, api_key: [{"id": 1}, {"id": 2}, {"id": 3}, {"id": 4}],
+    )
+
+    body = _invoke("NotesOverviewIntent", access_token="notes-overview-token")
+
+    assert "Du hast insgesamt 4 Notizen in StudyLife." in _speech(body)
+
+
+async def test_notes_overview_intent_with_exactly_one_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _link_account("notes-overview-token-one", "fake-api-key")
+    monkeypatch.setattr(handlers, "list_notes_sync", lambda base_url, api_key: [{"id": 1}])
+
+    body = _invoke("NotesOverviewIntent", access_token="notes-overview-token-one")
+
+    assert "Du hast insgesamt 1 Notiz in StudyLife." in _speech(body)
+
+
+async def test_notes_overview_intent_with_no_notes(monkeypatch: pytest.MonkeyPatch) -> None:
+    await _link_account("notes-overview-token-empty", "fake-api-key")
+    monkeypatch.setattr(handlers, "list_notes_sync", lambda base_url, api_key: [])
+
+    body = _invoke("NotesOverviewIntent", access_token="notes-overview-token-empty")
+
+    assert "Du hast aktuell keine Notizen in StudyLife." in _speech(body)
+
+
+async def test_notes_overview_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from studylife_alexa.client import StudyLifeApiError
+
+    await _link_account("notes-overview-token-unreachable", "fake-api-key")
+
+    def _raise(base_url: str, api_key: str) -> list[dict[str, object]]:
+        raise StudyLifeApiError(503, "down")
+
+    monkeypatch.setattr(handlers, "list_notes_sync", _raise)
+
+    body = _invoke("NotesOverviewIntent", access_token="notes-overview-token-unreachable")
+
+    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+
+
+# ---------------------------------------------------------------------------
+# ProgramProgressIntent
+# ---------------------------------------------------------------------------
+
+
+def test_program_progress_intent_without_linked_account_prompts_to_link() -> None:
+    body = _invoke("ProgramProgressIntent", access_token=None, slots={"ProgramName": "Informatik"})
+
+    assert "verknüpft" in _speech(body)
+    assert body["response"]["card"]["type"] == "LinkAccount"
+
+
+async def test_program_progress_intent_empty_program_name_reprompts_without_calling_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _link_account("program-progress-token-empty-name", "fake-api-key")
+    called = {"programs": False, "detail": False, "courses": False, "goals": False}
+
+    def _fail(name: str):
+        def _inner(*args: object, **kwargs: object) -> object:
+            called[name] = True
+            return [] if name != "detail" else {}
+
+        return _inner
+
+    monkeypatch.setattr(handlers, "list_study_programs_sync", _fail("programs"))
+    monkeypatch.setattr(handlers, "get_study_program_sync", _fail("detail"))
+    monkeypatch.setattr(handlers, "list_courses_sync", _fail("courses"))
+    monkeypatch.setattr(handlers, "list_course_goals_sync", _fail("goals"))
+
+    body = _invoke(
+        "ProgramProgressIntent",
+        access_token="program-progress-token-empty-name",
+        slots={"ProgramName": ""},
+    )
+
+    assert not any(called.values())
+    assert "Für welchen Studiengang möchtest du den Fortschritt wissen?" in _speech(body)
+    assert body["response"]["reprompt"]["outputSpeech"]["ssml"]
+
+
+async def test_program_progress_intent_missing_slot_reprompts_without_calling_api(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _link_account("program-progress-token-missing-slot", "fake-api-key")
+    called = {"programs": False, "detail": False, "courses": False, "goals": False}
+
+    def _fail(name: str):
+        def _inner(*args: object, **kwargs: object) -> object:
+            called[name] = True
+            return [] if name != "detail" else {}
+
+        return _inner
+
+    monkeypatch.setattr(handlers, "list_study_programs_sync", _fail("programs"))
+    monkeypatch.setattr(handlers, "get_study_program_sync", _fail("detail"))
+    monkeypatch.setattr(handlers, "list_courses_sync", _fail("courses"))
+    monkeypatch.setattr(handlers, "list_course_goals_sync", _fail("goals"))
+
+    body = _invoke("ProgramProgressIntent", access_token="program-progress-token-missing-slot")
+
+    assert not any(called.values())
+    assert "Für welchen Studiengang möchtest du den Fortschritt wissen?" in _speech(body)
+
+
+async def test_program_progress_intent_no_matching_program_short_circuits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The handler must give up right after list_study_programs_sync when nothing
+    fuzzy-matches - it must not go on to fetch program detail/courses/goals."""
+    await _link_account("program-progress-token-no-match", "fake-api-key")
+    called = {"detail": False, "courses": False, "goals": False}
+
+    def _fail(name: str):
+        def _inner(*args: object, **kwargs: object) -> object:
+            called[name] = True
+            return {} if name == "detail" else []
+
+        return _inner
+
+    monkeypatch.setattr(
+        handlers,
+        "list_study_programs_sync",
+        lambda base_url, api_key: [{"id": 1, "name": "Informatik"}],
+    )
+    monkeypatch.setattr(handlers, "get_study_program_sync", _fail("detail"))
+    monkeypatch.setattr(handlers, "list_courses_sync", _fail("courses"))
+    monkeypatch.setattr(handlers, "list_course_goals_sync", _fail("goals"))
+
+    body = _invoke(
+        "ProgramProgressIntent",
+        access_token="program-progress-token-no-match",
+        slots={"ProgramName": "Philosophie"},
+    )
+
+    assert not any(called.values())
+    assert "Ich konnte keinen Studiengang namens Philosophie finden." in _speech(body)
+
+
+async def test_program_progress_intent_success_computes_ects_progress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _link_account("program-progress-token", "fake-api-key")
+
+    monkeypatch.setattr(
+        handlers,
+        "list_study_programs_sync",
+        lambda base_url, api_key: [
+            {"id": 42, "name": "Informatik B.Sc."},
+            {"id": 7, "name": "Mathematik"},
+        ],
+    )
+
+    def fake_get_study_program_sync(
+        base_url: str, api_key: str, program_id: int
+    ) -> dict[str, object]:
+        assert program_id == 42
+        return {
+            "id": 42,
+            "name": "Informatik B.Sc.",
+            "groupEctsQuotas": {"Pflicht": 60, "Wahlpflicht": 30},
+        }
+
+    monkeypatch.setattr(handlers, "get_study_program_sync", fake_get_study_program_sync)
+    monkeypatch.setattr(
+        handlers,
+        "list_courses_sync",
+        lambda base_url, api_key: [
+            {"id": 1, "ects": 10, "group": "Pflicht"},
+            {"id": 2, "ects": 5, "group": "Pflicht"},
+            {"id": 3, "ects": 8, "group": "Wahlpflicht"},
+            # completed, but its group has no quota entry - must NOT count towards
+            # either completed or total ECTS.
+            {"id": 4, "ects": 6, "group": "Sonstiges"},
+        ],
+    )
+    monkeypatch.setattr(
+        handlers,
+        "list_course_goals_sync",
+        lambda base_url, api_key: [
+            {"courseId": 1, "completedAt": "2026-08-01T10:00:00"},
+            {"courseId": 2, "completedAt": None},
+            {"courseId": 3, "completedAt": "2026-08-02T10:00:00"},
+            {"courseId": 4, "completedAt": "2026-08-03T10:00:00"},
+        ],
+    )
+
+    body = _invoke(
+        "ProgramProgressIntent",
+        access_token="program-progress-token",
+        slots={"ProgramName": "Informatik"},
+    )
+
+    # By hand: total = 60 + 30 = 90. Completed = course 1 (10, Pflicht, done) +
+    # course 3 (8, Wahlpflicht, done) = 18. Course 2 isn't done; course 4 is done but
+    # its group ("Sonstiges") has no quota entry, so it's excluded from both sides.
+    assert "Du hast 18 von 90 ECTS in Informatik B.Sc. abgeschlossen." in _speech(body)
+
+
+async def test_program_progress_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from studylife_alexa.client import StudyLifeApiError
+
+    await _link_account("program-progress-token-unreachable", "fake-api-key")
+
+    monkeypatch.setattr(
+        handlers,
+        "list_study_programs_sync",
+        lambda base_url, api_key: [{"id": 42, "name": "Informatik"}],
+    )
+    monkeypatch.setattr(
+        handlers,
+        "get_study_program_sync",
+        lambda base_url, api_key, program_id: {
+            "id": 42,
+            "name": "Informatik",
+            "groupEctsQuotas": {"Pflicht": 60},
+        },
+    )
+
+    def _raise(base_url: str, api_key: str) -> list[dict[str, object]]:
+        raise StudyLifeApiError(503, "down")
+
+    monkeypatch.setattr(handlers, "list_courses_sync", _raise)
+
+    body = _invoke(
+        "ProgramProgressIntent",
+        access_token="program-progress-token-unreachable",
+        slots={"ProgramName": "Informatik"},
+    )
+
+    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
