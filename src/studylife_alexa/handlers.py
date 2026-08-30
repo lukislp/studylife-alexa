@@ -9,7 +9,7 @@ account-linking-resolution/error-handling shape via _resolve_api_key/_link_accou
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ask_sdk_core.dispatch_components import AbstractExceptionHandler, AbstractRequestHandler
 from ask_sdk_core.handler_input import HandlerInput
@@ -95,6 +95,13 @@ def _unreachable_response(handler_input: HandlerInput) -> Response:
     return _answer(handler_input, _STUDYLIFE_UNREACHABLE_SPEECH)
 
 
+def _pluralize(count: int, singular: str, plural: str) -> str:
+    """German has no generic plural suffix rule simple enough to derive automatically
+    (Kurs/Kurse, Lernziel/Lernziele, Notiz/Notizen, Stunde/Stunden all differ) - every
+    call site spells out its own singular/plural form explicitly."""
+    return f"{count} {singular if count == 1 else plural}"
+
+
 class LaunchRequestHandler(AbstractRequestHandler):
     def can_handle(self, handler_input: HandlerInput) -> bool:
         return is_request_type("LaunchRequest")(handler_input)
@@ -131,7 +138,7 @@ class CoursesIntentHandler(AbstractRequestHandler):
         if not courses:
             speech = "Du hast aktuell keine Kurse in StudyLife angelegt."
         else:
-            speech = f"Du hast aktuell {len(courses)} Kurse in StudyLife."
+            speech = f"Du hast aktuell {_pluralize(len(courses), 'Kurs', 'Kurse')} in StudyLife."
         return _answer(handler_input, speech)
 
 
@@ -159,32 +166,69 @@ class TimerStatusIntentHandler(AbstractRequestHandler):
         return _answer(handler_input, speech)
 
 
-# TimePeriod slot values (heute/diese woche/diesen monat) resolve to plain spoken text,
-# not a canonical id - matched by substring rather than depending on entity resolution,
-# same DIY-over-framework style as the rest of this codebase. "heute" is also the
-# fallback for an empty/unrecognized slot.
-_TIME_PERIOD_DAYS = {"monat": 30, "woche": 7}
+# TimePeriod slot values resolve to plain spoken text, not a canonical id - matched by
+# substring rather than depending on entity resolution, same DIY-over-framework style as
+# the rest of this codebase. "letzt" must be checked before the bare "woche"/"monat"
+# checks, since "letzte woche" also contains "woche" as a substring. Both "week"
+# variants are ROLLING windows relative to now (0-6 / 7-13 days ago), not calendar
+# weeks (Mon-Sun) - simpler, and consistent with "heute" already meaning "last 24h"
+# rather than "since local midnight". "heute" is also the fallback for an
+# empty/unrecognized slot.
+#
+# Each entry: (days to fetch from the API, window_start_days_ago, window_end_days_ago,
+# spoken label). fetch_days must cover window_end_days_ago - the API's own "days" filter
+# only returns a trailing window from now, so reaching back to e.g. "letzte Woche" (7-13
+# days ago) requires fetching 14 days and filtering client-side down to just that slice
+# (_filter_sessions_by_window) - otherwise it would include the current week's sessions
+# too and double-count against a "diese Woche" query.
+_TIME_PERIODS: dict[str, tuple[int, int, int, str]] = {
+    "letzten monat": (60, 30, 59, "letzten Monat"),
+    "letzter monat": (60, 30, 59, "letzten Monat"),
+    "monat": (30, 0, 29, "diesen Monat"),
+    "letzte woche": (14, 7, 13, "letzte Woche"),
+    "letzten woche": (14, 7, 13, "letzte Woche"),
+    "woche": (7, 0, 6, "diese Woche"),
+}
 
 
-def _days_for_time_period(slot_value: str | None) -> tuple[int, str]:
+def _period_for_time_period(slot_value: str | None) -> tuple[int, int, int, str]:
     text = (slot_value or "").lower()
-    for keyword, days in _TIME_PERIOD_DAYS.items():
+    for keyword, period in _TIME_PERIODS.items():
         if keyword in text:
-            label = "diesen Monat" if keyword == "monat" else "diese Woche"
-            return days, label
-    return 1, "heute"
+            return period
+    return 1, 0, 0, "heute"
+
+
+def _filter_sessions_by_window(
+    sessions: list[dict[str, object]], start_days_ago: int, end_days_ago: int
+) -> list[dict[str, object]]:
+    now = datetime.now()
+    window_start = now - timedelta(days=end_days_ago + 1)
+    window_end = now - timedelta(days=start_days_ago)
+
+    filtered = []
+    for session in sessions:
+        start = session.get("startTime")
+        if not isinstance(start, str):
+            continue
+        try:
+            start_dt = datetime.fromisoformat(start)
+        except ValueError:
+            continue
+        if window_start <= start_dt <= window_end:
+            filtered.append(session)
+    return filtered
 
 
 def _format_duration(total_minutes: int) -> str:
-    def _unit(count: int, singular: str, plural: str) -> str:
-        return f"{count} {singular if count == 1 else plural}"
-
     if total_minutes < 60:
-        return _unit(total_minutes, "Minute", "Minuten")
+        return _pluralize(total_minutes, "Minute", "Minuten")
     hours, minutes = divmod(total_minutes, 60)
     if minutes == 0:
-        return _unit(hours, "Stunde", "Stunden")
-    return f"{_unit(hours, 'Stunde', 'Stunden')} und {_unit(minutes, 'Minute', 'Minuten')}"
+        return _pluralize(hours, "Stunde", "Stunden")
+    return (
+        f"{_pluralize(hours, 'Stunde', 'Stunden')} und {_pluralize(minutes, 'Minute', 'Minuten')}"
+    )
 
 
 def _sum_session_minutes(sessions: list[dict[str, object]]) -> int:
@@ -212,12 +256,17 @@ class StudyTimeIntentHandler(AbstractRequestHandler):
             return resolved
         settings, api_key = resolved
 
-        days, label = _days_for_time_period(get_slot_value(handler_input, "TimePeriod"))
+        fetch_days, start_days_ago, end_days_ago, label = _period_for_time_period(
+            get_slot_value(handler_input, "TimePeriod")
+        )
         try:
-            sessions = get_session_history_sync(str(settings.studylife_base_url), api_key, days)
+            sessions = get_session_history_sync(
+                str(settings.studylife_base_url), api_key, fetch_days
+            )
         except StudyLifeApiError:
             return _unreachable_response(handler_input)
 
+        sessions = _filter_sessions_by_window(sessions, start_days_ago, end_days_ago)
         minutes = _sum_session_minutes(sessions)
         if minutes == 0:
             speech = f"Du hast {label} noch nicht gelernt."
@@ -247,7 +296,10 @@ class RecentSessionsIntentHandler(AbstractRequestHandler):
             names = ", ".join(
                 str(s.get("courseName", "-")) for s in sessions[:5] if s.get("courseName")
             )
-            speech = f"In den letzten sieben Tagen hattest du {len(sessions)} Lernsessions"
+            speech = (
+                "In den letzten sieben Tagen hattest du "
+                f"{_pluralize(len(sessions), 'Lernsession', 'Lernsessions')}"
+            )
             speech += f", zuletzt in: {names}." if names else "."
         return _answer(handler_input, speech)
 
@@ -271,8 +323,10 @@ class CourseGoalsIntentHandler(AbstractRequestHandler):
             speech = "Du hast aktuell keine Lernziele in StudyLife angelegt."
         else:
             open_goals = sum(1 for g in goals if not g.get("completedAt"))
+            verb = "ist" if open_goals == 1 else "sind"
             speech = (
-                f"Du hast {len(goals)} Lernziele in StudyLife, davon sind {open_goals} noch offen."
+                f"Du hast {_pluralize(len(goals), 'Lernziel', 'Lernziele')} in StudyLife, "
+                f"davon {verb} {open_goals} noch offen."
             )
         return _answer(handler_input, speech)
 
@@ -296,7 +350,10 @@ class StudyProgramsIntentHandler(AbstractRequestHandler):
             speech = "Du hast aktuell keinen Studiengang in StudyLife angelegt."
         else:
             names = ", ".join(str(p.get("name", "-")) for p in programs)
-            speech = f"Du hast {len(programs)} Studiengänge in StudyLife: {names}."
+            speech = (
+                f"Du hast {_pluralize(len(programs), 'Studiengang', 'Studiengänge')} "
+                f"in StudyLife: {names}."
+            )
         return _answer(handler_input, speech)
 
 
@@ -324,7 +381,10 @@ class SearchNotesIntentHandler(AbstractRequestHandler):
             speech = f"Ich habe keine Notizen zu {query} gefunden."
         else:
             titles = ", ".join(str(n.get("title", "-")) for n in notes[:5])
-            speech = f"Ich habe {len(notes)} Notizen zu {query} gefunden, unter anderem: {titles}."
+            speech = (
+                f"Ich habe {_pluralize(len(notes), 'Notiz', 'Notizen')} zu {query} gefunden, "
+                f"unter anderem: {titles}."
+            )
         return _answer(handler_input, speech)
 
 

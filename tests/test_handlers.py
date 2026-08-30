@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta
 
 import pytest
 from ask_sdk_model.request_envelope import RequestEnvelope
@@ -177,11 +178,14 @@ async def test_study_time_intent_today_under_an_hour(monkeypatch: pytest.MonkeyP
     await _link_account("study-time-token-today", "fake-api-key")
     recorded_days: list[int | None] = []
 
+    start = datetime.now() - timedelta(hours=2)
+    end = start + timedelta(minutes=45)
+
     def fake_get_session_history_sync(
         base_url: str, api_key: str, days: int | None = None
     ) -> list[dict[str, object]]:
         recorded_days.append(days)
-        return [{"startTime": "2026-08-29T18:00:00", "endTime": "2026-08-29T18:45:00"}]
+        return [{"startTime": start.isoformat(), "endTime": end.isoformat()}]
 
     monkeypatch.setattr(handlers, "get_session_history_sync", fake_get_session_history_sync)
 
@@ -197,13 +201,22 @@ async def test_study_time_intent_this_week_over_an_hour(monkeypatch: pytest.Monk
     await _link_account("study-time-token-week", "fake-api-key")
     recorded_days: list[int | None] = []
 
+    first_start = datetime.now() - timedelta(days=2)
+    second_start = datetime.now() - timedelta(days=3)
+
     def fake_get_session_history_sync(
         base_url: str, api_key: str, days: int | None = None
     ) -> list[dict[str, object]]:
         recorded_days.append(days)
         return [
-            {"startTime": "2026-08-25T08:00:00", "endTime": "2026-08-25T09:30:00"},
-            {"startTime": "2026-08-26T08:00:00", "endTime": "2026-08-26T09:00:00"},
+            {
+                "startTime": first_start.isoformat(),
+                "endTime": (first_start + timedelta(minutes=90)).isoformat(),
+            },
+            {
+                "startTime": second_start.isoformat(),
+                "endTime": (second_start + timedelta(minutes=60)).isoformat(),
+            },
         ]
 
     monkeypatch.setattr(handlers, "get_session_history_sync", fake_get_session_history_sync)
@@ -214,6 +227,45 @@ async def test_study_time_intent_this_week_over_an_hour(monkeypatch: pytest.Monk
 
     assert recorded_days == [7]
     assert "Du hast diese Woche 2 Stunden und 30 Minuten gelernt." in _speech(body)
+
+
+async def test_study_time_intent_last_week_excludes_this_week(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: "letzte Woche" (last week) was previously matched against the same
+    synonym list as "diese Woche" (this week) in the interaction model, so both fetched
+    the trailing 7 days unfiltered. A session from 2 days ago (this week) must NOT be
+    counted, and a session from 10 days ago (last week) must be."""
+    await _link_account("study-time-token-last-week", "fake-api-key")
+    recorded_days: list[int | None] = []
+    this_week_start = datetime.now() - timedelta(days=2)
+    last_week_start = datetime.now() - timedelta(days=10)
+
+    def fake_get_session_history_sync(
+        base_url: str, api_key: str, days: int | None = None
+    ) -> list[dict[str, object]]:
+        recorded_days.append(days)
+        return [
+            {
+                "startTime": this_week_start.isoformat(),
+                "endTime": (this_week_start + timedelta(hours=5)).isoformat(),
+            },
+            {
+                "startTime": last_week_start.isoformat(),
+                "endTime": (last_week_start + timedelta(minutes=30)).isoformat(),
+            },
+        ]
+
+    monkeypatch.setattr(handlers, "get_session_history_sync", fake_get_session_history_sync)
+
+    body = _invoke(
+        "StudyTimeIntent",
+        access_token="study-time-token-last-week",
+        slots={"TimePeriod": "letzte Woche"},
+    )
+
+    assert recorded_days == [14]
+    assert "Du hast letzte Woche 30 Minuten gelernt." in _speech(body)
 
 
 async def test_study_time_intent_this_month_no_sessions(monkeypatch: pytest.MonkeyPatch) -> None:
