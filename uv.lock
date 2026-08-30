@@ -834,7 +834,7 @@ wheels = [
 
 [[package]]
 name = "studylife-alexa"
-version = "0.1.dev1+g2463024db"
+version = "0.1.1.dev2+ge88c6bbcc.d20260830"
 source = { editable = "." }
 dependencies = [
     { name = "ask-sdk-core" },
