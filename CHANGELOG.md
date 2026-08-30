@@ -1,3 +1,10 @@
+## [0.4.2](https://github.com/lukislp/studylife-alexa/compare/v0.4.1...v0.4.2) (2026-08-30)
+
+
+### Bug Fixes
+
+* accept any of Alexa's three regional Account Linking redirect URIs ([670338c](https://github.com/lukislp/studylife-alexa/commit/670338c8372e57dca100ab19200e377118bd1f91))
+
 ## [0.4.1](https://github.com/lukislp/studylife-alexa/compare/v0.4.0...v0.4.1) (2026-08-30)
 
 
