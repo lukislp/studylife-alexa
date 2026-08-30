@@ -1,3 +1,10 @@
+## [0.4.3](https://github.com/lukislp/studylife-alexa/compare/v0.4.2...v0.4.3) (2026-08-30)
+
+
+### Bug Fixes
+
+* expose the account-linking endpoints through the Tailscale Funnel ([2719d52](https://github.com/lukislp/studylife-alexa/commit/2719d527cfa015fa3dd16c8ed510da2cfdd85d66))
+
 ## [0.4.2](https://github.com/lukislp/studylife-alexa/compare/v0.4.1...v0.4.2) (2026-08-30)
 
 
