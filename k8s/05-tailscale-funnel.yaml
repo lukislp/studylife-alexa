@@ -15,10 +15,13 @@
 # this one) - k8s/04-network-policies.yaml's allow-tailscale-to-studylife-alexa rule is what
 # actually lets its traffic reach the pod.
 #
-# Explicit path allowlist, NOT a defaultBackend: only /alexa/skill (the actual Alexa webhook
-# endpoint Amazon's servers call) is reachable from the public internet. /healthz is
-# deliberately absent - it's operator-only, has no reason to be internet-facing, and stays
-# reachable only via a port-forward/exec if ever needed.
+# Explicit path allowlist, NOT a defaultBackend: /alexa/skill (the actual webhook endpoint
+# Amazon's servers call) plus the three account-linking endpoints a browser/Alexa's backend
+# must reach directly from the public internet - /authorize (the user's browser, redirected
+# here by Alexa's Account Linking flow), /oauth/studylife/callback (the user's browser again,
+# redirected here by StudyLife's own connect flow), and /token (Alexa's backend,
+# server-to-server). /healthz is deliberately absent - it's operator-only, has no reason to be
+# internet-facing, and stays reachable only via a port-forward/exec if ever needed.
 #
 # Bootstrap-only, NOT Flux-managed - same RBAC reasoning as k8s/00-namespace.yaml/
 # k8s/02-secret.yaml/k8s/04-network-policies.yaml (kustomize-controller's ClusterRole has no
@@ -36,11 +39,21 @@ spec:
   rules:
     - http:
         paths:
+          # Prefix, not Exact, on every path below - the Tailscale operator's own path
+          # matching is prefix-only regardless of pathType (docs.tailscale.com/
+          # kubernetes-operator/reference/limitations), same finding studylife-mcp's own
+          # Ingress documents. Harmless here since none of these paths prefix-collide with
+          # each other or anything unintended.
           - path: /alexa/skill
-            # Prefix, not Exact - the Tailscale operator's own path matching is prefix-only
-            # regardless of pathType (docs.tailscale.com/kubernetes-operator/reference/
-            # limitations), same finding studylife-mcp's own Ingress documents. Harmless here
-            # since /alexa/skill is the only path in this allowlist.
+            pathType: Prefix
+            backend: {service: {name: studylife-alexa, port: {number: 8000}}}
+          - path: /authorize
+            pathType: Prefix
+            backend: {service: {name: studylife-alexa, port: {number: 8000}}}
+          - path: /oauth/studylife/callback
+            pathType: Prefix
+            backend: {service: {name: studylife-alexa, port: {number: 8000}}}
+          - path: /token
             pathType: Prefix
             backend: {service: {name: studylife-alexa, port: {number: 8000}}}
   tls:
