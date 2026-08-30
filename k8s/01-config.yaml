@@ -1,8 +1,8 @@
 # Non-secret runtime configuration. Flux-managed (see k8s/flux-deploy/kustomization.yaml) -
 # kustomize-controller's ClusterRole (studylife repo's k8s/flux/06-reconciler-rbac.yaml)
-# grants "configmaps" but deliberately NOT "secrets" - see k8s/02-secret.yaml for why
-# ALEXA_SKILL_ID lives there instead, even though it isn't secret material in the usual
-# sense.
+# grants "configmaps" but deliberately NOT "secrets" - see k8s/02-secret.yaml for the
+# account-linking values that live there instead, even though most of them aren't secret
+# material in the usual sense either.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,3 +13,5 @@ data:
   # (not just relying on Settings' own default) so it's explicit and visible in the deploy
   # manifest itself, not just implicit.
   ALEXA_VERIFY_REQUESTS: "true"
+
+  ALEXA_OAUTH_DB_PATH: "/app/data/oauth.db"

@@ -1,10 +1,23 @@
-# The service itself. Image tag is a placeholder ("0.2.0") overwritten by Flux's
+# The service itself. Image tag is a placeholder overwritten by Flux's
 # ImageUpdateAutomation (k8s/flux/04-image-update-automation.yaml) the moment it first
 # reconciles against a real published tag - mirrors every other StudyLife add-on's own
-# k8s/04-app.yaml. No PVC: the skill is currently stateless (canned responses only, no
-# account linking/persistence yet - see README "Status"), so no Recreate strategy or
-# fsGroup is needed either. This repo's Dockerfile creates "appuser" with an explicit
-# numeric --uid 1000, so runAsNonRoot/runAsUser is safe here without live inspection.
+# k8s/04-app.yaml. This repo's Dockerfile creates "appuser" with an explicit numeric
+# --uid 1000, so runAsNonRoot/runAsUser is safe here without live inspection.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: studylife-alexa-data
+  namespace: studylife-alexa
+spec:
+  accessModes: ["ReadWriteOnce"]
+  # Longhorn (cross-node-replicated, homelab-infra/cluster/11-longhorn-values.yaml)
+  # instead of local-path - oauth.db (every issued access/refresh token, encrypted, and
+  # the underlying StudyLife API key) survives a node dying instead of needing a Velero
+  # restore.
+  storageClassName: longhorn
+  resources:
+    requests: {storage: 128Mi}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,16 +25,30 @@ metadata:
   namespace: studylife-alexa
 spec:
   replicas: 1
+  strategy:
+    # Single instance with an RWO volume - oauth.db is a plain SQLite file, not built
+    # for concurrent writers, same reasoning as every other StudyLife add-on's own
+    # SQLite-backed service.
+    type: Recreate
   selector:
     matchLabels: {app: studylife-alexa}
   template:
     metadata:
       labels: {app: studylife-alexa}
+      annotations:
+        # Opt-in to homelab-infra's nightly Velero PVC backup: /app/data holds every
+        # linked user's encrypted StudyLife API key. Losing it means re-linking the
+        # account in the Alexa app.
+        backup.velero.io/backup-volumes: data
     spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+        # Makes the PVC mount group-writable by UID 1000 on first mount - without this,
+        # a freshly-provisioned PersistentVolume is root-owned and the non-root
+        # container gets "Permission denied" writing to /app/data/oauth.db.
+        fsGroup: 1000
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: studylife-alexa
@@ -45,6 +72,12 @@ spec:
             httpGet: {path: /healthz, port: 8000}
             initialDelaySeconds: 10
             periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: studylife-alexa-data}
 ---
 apiVersion: v1
 kind: Service

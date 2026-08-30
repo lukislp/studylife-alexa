@@ -4,6 +4,7 @@ from studylife_alexa.config import Settings
 from studylife_alexa.handlers import (
     CancelOrStopIntentHandler,
     CatchAllExceptionHandler,
+    CoursesIntentHandler,
     HelpIntentHandler,
     LaunchRequestHandler,
     SessionEndedRequestHandler,
@@ -17,6 +18,7 @@ def build_skill(settings: Settings):
 
     sb.add_request_handler(LaunchRequestHandler())
     sb.add_request_handler(TestIntentHandler())
+    sb.add_request_handler(CoursesIntentHandler())
     sb.add_request_handler(HelpIntentHandler())
     sb.add_request_handler(CancelOrStopIntentHandler())
     sb.add_request_handler(SessionEndedRequestHandler())
