@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/lukislp/studylife-alexa/compare/v0.4.3...v0.5.0) (2026-08-30)
+
+
+### Features
+
+* expose the rest of StudyLife's publicly-grantable data via voice ([d6172f8](https://github.com/lukislp/studylife-alexa/commit/d6172f81965696f992fd3459a06be147331e6250))
+
 ## [0.4.3](https://github.com/lukislp/studylife-alexa/compare/v0.4.2...v0.4.3) (2026-08-30)
 
 
