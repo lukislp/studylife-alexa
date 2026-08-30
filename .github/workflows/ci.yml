@@ -28,7 +28,15 @@ jobs:
       - run: uv run ruff format --check .
 
   test:
-    runs-on: ubuntu-latest
+    # Pinned below ubuntu-latest (24.04): its OpenSSL 3.0.13+ version string has a
+    # two-digit patch number ("3.0.13"), which trips a long-standing, unfixed regex
+    # bug in oscrypto (a transitive dep of ask-sdk-webservice-support's cert-chain
+    # verifier via certvalidator) - see https://github.com/wbond/oscrypto/issues/78.
+    # Raises LibraryNotFoundError at import time, failing test collection entirely.
+    # 22.04's OpenSSL 3.0.2 has a single-digit patch and isn't affected. Doesn't
+    # affect the Docker image (python:3.12-slim's OpenSSL also has a single-digit
+    # patch) - this only ever hit the bare CI runner.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: astral-sh/setup-uv@v9.0.0

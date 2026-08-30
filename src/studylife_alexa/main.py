@@ -1,14 +1,10 @@
-from studylife_alexa import _oscrypto_bootstrap
+from ask_sdk_runtime.exceptions import AskSdkException
+from ask_sdk_webservice_support.webservice_handler import WebserviceSkillHandler
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
-_oscrypto_bootstrap.apply()
-
-from ask_sdk_runtime.exceptions import AskSdkException  # noqa: E402
-from ask_sdk_webservice_support.webservice_handler import WebserviceSkillHandler  # noqa: E402
-from fastapi import FastAPI, Request  # noqa: E402
-from fastapi.responses import JSONResponse  # noqa: E402
-
-from studylife_alexa.config import Settings  # noqa: E402
-from studylife_alexa.skill import build_skill  # noqa: E402
+from studylife_alexa.config import Settings
+from studylife_alexa.skill import build_skill
 
 app = FastAPI()
 
