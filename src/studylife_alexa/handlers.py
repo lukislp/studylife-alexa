@@ -76,8 +76,23 @@ def _link_account_response(handler_input: HandlerInput, speech: str) -> Response
     )
 
 
+_FOLLOWUP_REPROMPT = "Sonst noch etwas?"
+
+
+def _answer(handler_input: HandlerInput, speech: str) -> Response:
+    """Speaks the answer and keeps the session open for a follow-up question via
+    .ask(), instead of closing the mic after every single query (the ask-sdk default
+    when should_end_session is never set) - without this, EVERY question beyond the
+    first would need "Alexa, öffne study life" said again first."""
+    return (
+        handler_input.response_builder.speak(f"{speech} {_FOLLOWUP_REPROMPT}")
+        .ask(_FOLLOWUP_REPROMPT)
+        .response
+    )
+
+
 def _unreachable_response(handler_input: HandlerInput) -> Response:
-    return handler_input.response_builder.speak(_STUDYLIFE_UNREACHABLE_SPEECH).response
+    return _answer(handler_input, _STUDYLIFE_UNREACHABLE_SPEECH)
 
 
 class LaunchRequestHandler(AbstractRequestHandler):
@@ -95,7 +110,7 @@ class TestIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         speech = "Verbindung funktioniert. Study Life ist bereit."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 class CoursesIntentHandler(AbstractRequestHandler):
@@ -117,7 +132,7 @@ class CoursesIntentHandler(AbstractRequestHandler):
             speech = "Du hast aktuell keine Kurse in StudyLife angelegt."
         else:
             speech = f"Du hast aktuell {len(courses)} Kurse in StudyLife."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 class TimerStatusIntentHandler(AbstractRequestHandler):
@@ -141,7 +156,7 @@ class TimerStatusIntentHandler(AbstractRequestHandler):
             speech = "Dein Fokus-Timer läuft, du bist gerade in einer Pause."
         else:
             speech = "Dein Fokus-Timer läuft gerade."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 # TimePeriod slot values (heute/diese woche/diesen monat) resolve to plain spoken text,
@@ -208,7 +223,7 @@ class StudyTimeIntentHandler(AbstractRequestHandler):
             speech = f"Du hast {label} noch nicht gelernt."
         else:
             speech = f"Du hast {label} {_format_duration(minutes)} gelernt."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 class RecentSessionsIntentHandler(AbstractRequestHandler):
@@ -234,7 +249,7 @@ class RecentSessionsIntentHandler(AbstractRequestHandler):
             )
             speech = f"In den letzten sieben Tagen hattest du {len(sessions)} Lernsessions"
             speech += f", zuletzt in: {names}." if names else "."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 class CourseGoalsIntentHandler(AbstractRequestHandler):
@@ -259,7 +274,7 @@ class CourseGoalsIntentHandler(AbstractRequestHandler):
             speech = (
                 f"Du hast {len(goals)} Lernziele in StudyLife, davon sind {open_goals} noch offen."
             )
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 class StudyProgramsIntentHandler(AbstractRequestHandler):
@@ -282,7 +297,7 @@ class StudyProgramsIntentHandler(AbstractRequestHandler):
         else:
             names = ", ".join(str(p.get("name", "-")) for p in programs)
             speech = f"Du hast {len(programs)} Studiengänge in StudyLife: {names}."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 class SearchNotesIntentHandler(AbstractRequestHandler):
@@ -310,7 +325,7 @@ class SearchNotesIntentHandler(AbstractRequestHandler):
         else:
             titles = ", ".join(str(n.get("title", "-")) for n in notes[:5])
             speech = f"Ich habe {len(notes)} Notizen zu {query} gefunden, unter anderem: {titles}."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 class CreateNoteIntentHandler(AbstractRequestHandler):
@@ -335,7 +350,7 @@ class CreateNoteIntentHandler(AbstractRequestHandler):
             return _unreachable_response(handler_input)
 
         speech = "Notiz gespeichert."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)
 
 
 class HelpIntentHandler(AbstractRequestHandler):
@@ -387,4 +402,4 @@ class CatchAllExceptionHandler(AbstractExceptionHandler):
 
     def handle(self, handler_input: HandlerInput, exception: Exception) -> Response:
         speech = "Entschuldigung, da ist etwas schiefgelaufen."
-        return handler_input.response_builder.speak(speech).response
+        return _answer(handler_input, speech)

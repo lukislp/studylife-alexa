@@ -91,6 +91,10 @@ async def test_courses_intent_with_linked_account_calls_studylife(
     body = _invoke("CoursesIntent", access_token="real-alexa-access-token")
 
     assert "2 Kurse" in _speech(body)
+    # Regression: a successful answer must keep the session open (a follow-up question
+    # shouldn't need "Alexa, öffne study life" said again) - shouldEndSession is only
+    # present in the JSON at all once something (like .ask()) actually sets it.
+    assert body["response"]["shouldEndSession"] is False
 
 
 # ---------------------------------------------------------------------------
