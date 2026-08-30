@@ -1014,6 +1014,45 @@ async def test_program_progress_intent_fuzzy_matches_minor_asr_typo(
     assert "10 von 60 ECTS in Applied Artificial Intelligence abgeschlossen" in _speech(body)
 
 
+async def test_program_progress_intent_built_in_program_has_no_detail_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: found live - the built-in study program (StudyProgramSummaryDto.Id
+    == null) matched by name just fine, but StudyPrograms.Get requires an int id
+    ([HttpGet("{id:int}")]), so there's no way to fetch its ECTS quotas at all. This
+    must NOT be reported as "Studiengang nicht gefunden" (it WAS found) - it needs its
+    own honest message, and must short-circuit before calling get_study_program_sync
+    (which has no id to call with)."""
+    await _link_account("program-progress-token-builtin", "fake-api-key")
+    detail_called = False
+
+    def _fail_detail(base_url: str, api_key: str, program_id: int) -> dict[str, object]:
+        nonlocal detail_called
+        detail_called = True
+        return {}
+
+    monkeypatch.setattr(
+        handlers,
+        "list_study_programs_sync",
+        lambda base_url, api_key: [
+            {"id": None, "name": "Applied Artificial Intelligence", "isBuiltIn": True}
+        ],
+    )
+    monkeypatch.setattr(handlers, "get_study_program_sync", _fail_detail)
+
+    body = _invoke(
+        "ProgramProgressIntent",
+        access_token="program-progress-token-builtin",
+        slots={"ProgramName": "applied artificial intelligence"},
+    )
+
+    assert not detail_called
+    speech = _speech(body)
+    assert "Applied Artificial Intelligence" in speech
+    assert "keine Fortschrittsdaten verfügbar" in speech
+    assert "konnte keinen Studiengang" not in speech
+
+
 async def test_program_progress_intent_success_computes_ects_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
