@@ -1,0 +1,58 @@
+[project]
+name = "studylife-alexa"
+dynamic = ["version"]
+description = "Alexa Skill backend for StudyLife: voice control for focus timer and study sessions, account-linked via a self-built OAuth wrapper."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ask-sdk-core>=1.19.0",
+    "ask-sdk-model>=1.82.0",
+    "ask-sdk-webservice-support>=1.3.3",
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "httpx>=0.27",
+    "ruff>=0.7",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/studylife_alexa/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/studylife_alexa"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "RUF", # ruff-specific rules
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["studylife_alexa"]
