@@ -26,15 +26,21 @@ import sys
 
 def _resolve_via_ldconfig(soname_fragment: str) -> str | None:
     try:
-        output = subprocess.run(
-            ["ldconfig", "-p"], capture_output=True, text=True, check=True
-        ).stdout
-    except (OSError, subprocess.CalledProcessError):
+        result = subprocess.run(
+            ["/sbin/ldconfig", "-p"], capture_output=True, text=True, check=True
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"studylife_alexa oscrypto bootstrap: ldconfig failed: {exc!r}", file=sys.stderr)
         return None
 
-    for line in output.splitlines():
+    for line in result.stdout.splitlines():
         if soname_fragment in line and "=>" in line:
             return line.split("=>", 1)[1].strip()
+
+    print(
+        f"studylife_alexa oscrypto bootstrap: no ldconfig entry matched {soname_fragment!r}",
+        file=sys.stderr,
+    )
     return None
 
 
