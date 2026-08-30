@@ -970,6 +970,50 @@ async def test_program_progress_intent_no_matching_program_short_circuits(
     assert "Ich konnte keinen Studiengang namens Philosophie finden." in _speech(body)
 
 
+async def test_program_progress_intent_fuzzy_matches_minor_asr_typo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: found live - voice recognition transcribed "Applied Artificial
+    Intelligence" as "applied artifical intelligence" (one dropped letter), which
+    failed the old pure-substring match in both directions."""
+    await _link_account("program-progress-token-fuzzy", "fake-api-key")
+
+    monkeypatch.setattr(
+        handlers,
+        "list_study_programs_sync",
+        lambda base_url, api_key: [
+            {"id": 7, "name": "Applied Artificial Intelligence"},
+        ],
+    )
+    monkeypatch.setattr(
+        handlers,
+        "get_study_program_sync",
+        lambda base_url, api_key, program_id: {
+            "id": 7,
+            "name": "Applied Artificial Intelligence",
+            "groupEctsQuotas": {"Pflicht": 60},
+        },
+    )
+    monkeypatch.setattr(
+        handlers,
+        "list_courses_sync",
+        lambda base_url, api_key: [{"id": 1, "ects": 10, "group": "Pflicht"}],
+    )
+    monkeypatch.setattr(
+        handlers,
+        "list_course_goals_sync",
+        lambda base_url, api_key: [{"courseId": 1, "completedAt": "2026-01-01T00:00:00"}],
+    )
+
+    body = _invoke(
+        "ProgramProgressIntent",
+        access_token="program-progress-token-fuzzy",
+        slots={"ProgramName": "applied artifical intelligence"},
+    )
+
+    assert "10 von 60 ECTS in Applied Artificial Intelligence abgeschlossen" in _speech(body)
+
+
 async def test_program_progress_intent_success_computes_ects_progress(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
