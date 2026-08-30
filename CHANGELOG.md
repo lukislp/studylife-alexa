@@ -1,3 +1,10 @@
+# [0.6.0](https://github.com/lukislp/studylife-alexa/compare/v0.5.2...v0.6.0) (2026-08-30)
+
+
+### Features
+
+* add NextSessionIntent, NotesOverviewIntent, ProgramProgressIntent ([5ad509d](https://github.com/lukislp/studylife-alexa/commit/5ad509d715e9913ab400524ff4a4b5070f056722))
+
 ## [0.5.2](https://github.com/lukislp/studylife-alexa/compare/v0.5.1...v0.5.2) (2026-08-30)
 
 
