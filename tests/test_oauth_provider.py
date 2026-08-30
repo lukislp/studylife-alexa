@@ -41,6 +41,16 @@ def test_authorize_rejects_wrong_client_id(client) -> None:
     assert response.status_code == 401
 
 
+def test_authorize_accepts_any_configured_regional_redirect_uri(client) -> None:
+    japan_redirect_uri = "https://alexa.amazon.co.jp/api/skill/link/TEST"
+    response = client.get(
+        "/authorize",
+        params=_authorize_params(redirect_uri=japan_redirect_uri),
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+
 def test_authorize_rejects_wrong_redirect_uri(client) -> None:
     response = client.get(
         "/authorize",

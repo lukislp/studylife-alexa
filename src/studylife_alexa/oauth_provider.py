@@ -68,6 +68,10 @@ def _extract_client_credentials(request: Request, form: FormData) -> tuple[str, 
     return str(form.get("client_id", "")), str(form.get("client_secret", ""))
 
 
+def _allowed_redirect_uris(settings: Settings) -> set[str]:
+    return {uri.strip() for uri in (settings.alexa_redirect_uris or "").split(",") if uri.strip()}
+
+
 def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -> None:
     @app.get("/authorize")
     async def authorize(request: Request) -> Response:
@@ -77,7 +81,12 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
         if not hmac.compare_digest(params.get("client_id", ""), settings.alexa_client_id or ""):
             return JSONResponse({"error": "unauthorized_client"}, status_code=401)
         redirect_uri = params.get("redirect_uri", "")
-        if not hmac.compare_digest(redirect_uri, settings.alexa_redirect_uri or ""):
+        # Alexa's Account Linking gives THREE fixed redirect_uri values, one per
+        # regional companion app (see config.py's own comment on
+        # alexa_redirect_uris) - which one shows up here depends on which region the
+        # user is linking from, so this checks membership, not equality against one
+        # value.
+        if redirect_uri not in _allowed_redirect_uris(settings):
             return JSONResponse(
                 {"error": "invalid_request", "error_description": "redirect_uri mismatch"},
                 status_code=400,

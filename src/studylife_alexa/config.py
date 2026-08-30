@@ -35,12 +35,15 @@ class Settings(BaseSettings):
     alexa_client_id: str | None = None
     alexa_client_secret: str | None = None
 
-    # The exact redirect_uri Alexa's Account Linking config page shows once Client ID/
-    # Secret are filled in (one fixed value per skill, e.g.
-    # https://pitangui.amazon.com/api/skill/link/... for the US region) - authorize()
-    # checks the incoming request's redirect_uri against this exactly, the same
-    # exact-match policy studylife-cli's own AllowedRedirectUris registration uses.
-    alexa_redirect_uri: str | None = None
+    # Comma-separated exact redirect_uri values Alexa's Account Linking config page
+    # shows once Client ID/Secret are filled in - THREE fixed values per skill, one per
+    # Alexa companion-app region (pitangui.amazon.com/US, layla.amazon.com,
+    # alexa.amazon.co.jp/Japan), not just one. Which one Alexa actually sends on a given
+    # /authorize call depends on which regional app/site the user is linking from, so
+    # authorize() has to accept any of them - not a single fixed value the way
+    # studylife-cli's own AllowedRedirectUris registration gets away with (a native
+    # app has exactly one redirect target, a skill has three).
+    alexa_redirect_uris: str | None = None
 
     # StudyLife's own public/browser-facing base URL (identity-contract-v1 SS2) - the
     # authorize() redirect sends the user's browser here to `/connect/client/
