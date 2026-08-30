@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/lukislp/studylife-alexa/compare/v0.2.0...v0.3.0) (2026-08-30)
+
+
+### Features
+
+* K8s deployment manifests - self-hosted via Flux + Tailscale Funnel ([2ff674d](https://github.com/lukislp/studylife-alexa/commit/2ff674d44d6c98a02e4823a580341cdeb525b227))
+
 # [0.2.0](https://github.com/lukislp/studylife-alexa/compare/v0.1.0...v0.2.0) (2026-08-30)
 
 
