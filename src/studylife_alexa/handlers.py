@@ -9,6 +9,7 @@ account-linking-resolution/error-handling shape via _resolve_api_key/_link_accou
 
 from __future__ import annotations
 
+import difflib
 from datetime import datetime, timedelta
 
 from ask_sdk_core.dispatch_components import AbstractExceptionHandler, AbstractRequestHandler
@@ -411,10 +412,23 @@ def _find_program_by_name(
     programs: list[dict[str, object]], query: str
 ) -> dict[str, object] | None:
     query_lower = query.strip().lower()
-    for program in programs:
-        name = str(program.get("name", "")).lower()
-        if query_lower in name or name in query_lower:
+    if not query_lower:
+        return None
+
+    names_lower = [str(p.get("name", "")).lower() for p in programs]
+
+    # Exact substring match first - handles a shortened name ("KI" as part of a longer
+    # program name) without needing the fuzzy fallback below.
+    for program, name_lower in zip(programs, names_lower, strict=True):
+        if query_lower in name_lower or name_lower in query_lower:
             return program
+
+    # Fuzzy fallback for small ASR/spelling differences (found live: voice recognition
+    # transcribed "Applied Artificial Intelligence" as "applied artifical intelligence" -
+    # one dropped letter is enough to fail a pure substring check either direction).
+    close_matches = difflib.get_close_matches(query_lower, names_lower, n=1, cutoff=0.75)
+    if close_matches:
+        return programs[names_lower.index(close_matches[0])]
     return None
 
 
