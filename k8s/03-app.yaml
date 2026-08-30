@@ -1,0 +1,60 @@
+# The service itself. Image tag is a placeholder ("0.2.0") overwritten by Flux's
+# ImageUpdateAutomation (k8s/flux/04-image-update-automation.yaml) the moment it first
+# reconciles against a real published tag - mirrors every other StudyLife add-on's own
+# k8s/04-app.yaml. No PVC: the skill is currently stateless (canned responses only, no
+# account linking/persistence yet - see README "Status"), so no Recreate strategy or
+# fsGroup is needed either. This repo's Dockerfile creates "appuser" with an explicit
+# numeric --uid 1000, so runAsNonRoot/runAsUser is safe here without live inspection.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: studylife-alexa
+  namespace: studylife-alexa
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: studylife-alexa}
+  template:
+    metadata:
+      labels: {app: studylife-alexa}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: studylife-alexa
+          image: ghcr.io/lukislp/studylife-alexa:0.2.0 # {"$imagepolicy": "flux-system:studylife-alexa"}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+          envFrom:
+            - configMapRef: {name: studylife-alexa-config}
+            - secretRef: {name: studylife-alexa-secrets}
+          ports:
+            - containerPort: 8000
+          resources:
+            requests: {cpu: 50m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          readinessProbe:
+            httpGet: {path: /healthz, port: 8000}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8000}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: studylife-alexa
+  namespace: studylife-alexa
+spec:
+  type: ClusterIP
+  selector: {app: studylife-alexa}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
