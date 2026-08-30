@@ -852,7 +852,7 @@ wheels = [
 
 [[package]]
 name = "studylife-alexa"
-version = "0.2.1.dev2+g794e4c30a.d20260830"
+version = "0.3.1.dev3+gaba57f02a.d20260830"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
@@ -861,6 +861,7 @@ dependencies = [
     { name = "ask-sdk-webservice-support" },
     { name = "cryptography" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "python-multipart" },
@@ -869,7 +870,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
@@ -883,6 +883,7 @@ requires-dist = [
     { name = "ask-sdk-webservice-support", specifier = ">=1.3.3" },
     { name = "cryptography", specifier = ">=50.0.1" },
     { name = "fastapi", specifier = ">=0.115" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.6" },
     { name = "python-multipart", specifier = ">=0.0.32" },
@@ -891,7 +892,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.27" },
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.7" },
