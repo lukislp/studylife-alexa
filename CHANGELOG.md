@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/lukislp/studylife-alexa/compare/v0.6.0...v0.6.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* fuzzy-match program names, not just pure substring ([9bf733a](https://github.com/lukislp/studylife-alexa/commit/9bf733a492258221ac51ad56cca94ff65a0f0b97))
+
 # [0.6.0](https://github.com/lukislp/studylife-alexa/compare/v0.5.2...v0.6.0) (2026-08-30)
 
 
