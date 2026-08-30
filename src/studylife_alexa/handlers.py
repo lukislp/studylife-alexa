@@ -479,8 +479,20 @@ class ProgramProgressIntentHandler(AbstractRequestHandler):
         try:
             programs = list_study_programs_sync(base_url, api_key)
             program = _find_program_by_name(programs, query)
-            if program is None or program.get("id") is None:
+            if program is None:
                 speech = f"Ich konnte keinen Studiengang namens {query} finden."
+                return _answer(handler_input, speech)
+            if program.get("id") is None:
+                # The built-in study program (StudyProgramSummaryDto.Id == null, see
+                # StudyProgramsController's own comment) has no DB row, so there's no
+                # int id to call StudyPrograms.Get with at all (that route is
+                # [HttpGet("{id:int}")]) - a real API gap, not a "not found" case, so
+                # it gets its own honest message instead of the generic one above.
+                program_name = str(program.get("name", query))
+                speech = (
+                    f"Für den eingebauten Studiengang {program_name} sind über die "
+                    "Schnittstelle leider keine Fortschrittsdaten verfügbar."
+                )
                 return _answer(handler_input, speech)
 
             detail = get_study_program_sync(base_url, api_key, int(program["id"]))
