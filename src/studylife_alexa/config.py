@@ -1,3 +1,4 @@
+from pydantic import AnyHttpUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,3 +18,55 @@ class Settings(BaseSettings):
     # testing with a hand-crafted request body - never disable this in a deployed
     # environment, or anyone who finds the URL can send it forged requests.
     alexa_verify_requests: bool = True
+
+    # --- Account linking (oauth_provider.py) - all optional, with no bearing on the
+    # Phase A/B canned-response handlers, which never read them. Only required once a
+    # StudyLife-backed intent needs get_account_linking_access_token(handler_input) to
+    # resolve to a real StudyLife API key.
+
+    # This server's own public base URL (the Tailscale Funnel hostname) - authorize()
+    # needs it to build the callback URL StudyLife's connect flow redirects back to.
+    alexa_public_url: AnyHttpUrl | None = None
+
+    # Issued by this server, entered directly into the Alexa Developer Console's Account
+    # Linking config (Client ID / Client Secret fields) - these authenticate Alexa's own
+    # backend to this server's /token endpoint, NOT a StudyLife credential. Generate with
+    # `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+    alexa_client_id: str | None = None
+    alexa_client_secret: str | None = None
+
+    # The exact redirect_uri Alexa's Account Linking config page shows once Client ID/
+    # Secret are filled in (one fixed value per skill, e.g.
+    # https://pitangui.amazon.com/api/skill/link/... for the US region) - authorize()
+    # checks the incoming request's redirect_uri against this exactly, the same
+    # exact-match policy studylife-cli's own AllowedRedirectUris registration uses.
+    alexa_redirect_uri: str | None = None
+
+    # StudyLife's own public/browser-facing base URL (identity-contract-v1 SS2) - the
+    # authorize() redirect sends the user's browser here to `/connect/client/
+    # studylife-alexa` to log in and consent. Deliberately separate from a future
+    # server-to-server "studylife_base_url" for actual StudyLife API calls, mirroring
+    # studylife-mcp's own studylife_connect_url/studylife_base_url split - the two are
+    # not interchangeable: the browser can't reach a cluster-internal address, and this
+    # server shouldn't route the assertion-exchange call through the public one either
+    # (though for now it does, see client.py - no cluster-internal route exists yet for
+    # this repo the way studylife-mcp/studylife-ai have one).
+    studylife_connect_url: AnyHttpUrl | None = None
+
+    # StudyLife's base URL for actual server-to-server API calls (the assertion
+    # exchange, and later every real StudyLife-backed intent). Same value as
+    # studylife_connect_url for now (no cluster-internal route configured for this repo
+    # yet) - kept as a separate setting so that can change without conflating the two
+    # concerns, same reasoning as studylife-mcp's own split.
+    studylife_base_url: AnyHttpUrl | None = None
+
+    # Fernet key (32 url-safe base64-encoded bytes, e.g. via
+    # `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
+    # encrypting the StudyLife API key at rest in oauth_store.py - this server needs the
+    # plaintext back to call StudyLife on the user's behalf, so hashing alone isn't an
+    # option here.
+    alexa_token_encryption_key: str | None = None
+
+    # SQLite file for the account-linking OAuth store (oauth_store.py). Relative to the
+    # working directory unless absolute; gitignored like .env.
+    alexa_oauth_db_path: str = "oauth.db"
