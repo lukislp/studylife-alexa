@@ -1,3 +1,10 @@
+## [0.4.1](https://github.com/lukislp/studylife-alexa/compare/v0.4.0...v0.4.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* two production startup crashes found via a real container test ([d118957](https://github.com/lukislp/studylife-alexa/commit/d118957468b698d02864d77959d6ca4d5caffe06))
+
 # [0.4.0](https://github.com/lukislp/studylife-alexa/compare/v0.3.0...v0.4.0) (2026-08-30)
 
 
