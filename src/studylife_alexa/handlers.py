@@ -26,9 +26,12 @@ from studylife_alexa.client import (
     StudyLifeApiError,
     create_note_sync,
     get_session_history_sync,
+    get_study_program_sync,
     get_timer_state_sync,
+    list_all_sessions_sync,
     list_course_goals_sync,
     list_courses_sync,
+    list_notes_sync,
     list_study_programs_sync,
     search_notes_sync,
 )
@@ -304,6 +307,53 @@ class RecentSessionsIntentHandler(AbstractRequestHandler):
         return _answer(handler_input, speech)
 
 
+def _next_upcoming_session(
+    sessions: list[dict[str, object]],
+) -> tuple[datetime, str | None] | None:
+    now = datetime.now()
+    upcoming: list[tuple[datetime, str | None]] = []
+    for session in sessions:
+        start = session.get("startTime")
+        if not isinstance(start, str):
+            continue
+        try:
+            start_dt = datetime.fromisoformat(start)
+        except ValueError:
+            continue
+        if start_dt > now:
+            course_name = session.get("courseName")
+            upcoming.append((start_dt, str(course_name) if course_name else None))
+    return min(upcoming, key=lambda pair: pair[0]) if upcoming else None
+
+
+class NextSessionIntentHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input: HandlerInput) -> bool:
+        return is_intent_name("NextSessionIntent")(handler_input)
+
+    def handle(self, handler_input: HandlerInput) -> Response:
+        resolved = _resolve_api_key(handler_input)
+        if isinstance(resolved, Response):
+            return resolved
+        settings, api_key = resolved
+
+        try:
+            # list_all_sessions_sync (/api/sessions), NOT get_session_history_sync
+            # (/api/sessions/history) - the history endpoint only ever looks backward
+            # from now, so it can never contain a future/scheduled session.
+            sessions = list_all_sessions_sync(str(settings.studylife_base_url), api_key)
+        except StudyLifeApiError:
+            return _unreachable_response(handler_input)
+
+        upcoming = _next_upcoming_session(sessions)
+        if upcoming is None:
+            speech = "Du hast aktuell keine geplante Lernsession in StudyLife."
+        else:
+            start_dt, course_name = upcoming
+            speech = f"Deine nächste Lernsession ist am {start_dt:%d.%m.} um {start_dt:%H:%M} Uhr"
+            speech += f" für {course_name}." if course_name else "."
+        return _answer(handler_input, speech)
+
+
 class CourseGoalsIntentHandler(AbstractRequestHandler):
     def can_handle(self, handler_input: HandlerInput) -> bool:
         return is_intent_name("CourseGoalsIntent")(handler_input)
@@ -357,6 +407,85 @@ class StudyProgramsIntentHandler(AbstractRequestHandler):
         return _answer(handler_input, speech)
 
 
+def _find_program_by_name(
+    programs: list[dict[str, object]], query: str
+) -> dict[str, object] | None:
+    query_lower = query.strip().lower()
+    for program in programs:
+        name = str(program.get("name", "")).lower()
+        if query_lower in name or name in query_lower:
+            return program
+    return None
+
+
+def _program_progress(
+    detail: dict[str, object], courses: list[dict[str, object]], goals: list[dict[str, object]]
+) -> tuple[int, int]:
+    """(completed_ects, total_ects) - StudyPrograms.Get only ever returns per-group ECTS
+    quotas (max creditable, not progress - see StudyProgramDetailDto), so "progress"
+    has to be derived here: sum a course's ects whenever it belongs to one of the
+    program's groups AND has a CourseGoal with completedAt set (the same "is this
+    course actually done" signal CourseGoalsIntent already uses)."""
+    quotas = detail.get("groupEctsQuotas")
+    if not isinstance(quotas, dict):
+        return 0, 0
+    total_ects = sum(int(v) for v in quotas.values() if isinstance(v, int | float))
+
+    completed_course_ids = {
+        g.get("courseId") for g in goals if g.get("completedAt") and g.get("courseId") is not None
+    }
+    completed_ects = 0
+    for course in courses:
+        ects = course.get("ects")
+        if (
+            course.get("id") in completed_course_ids
+            and course.get("group") in quotas
+            and isinstance(ects, int | float)
+        ):
+            completed_ects += int(ects)
+    return completed_ects, total_ects
+
+
+class ProgramProgressIntentHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input: HandlerInput) -> bool:
+        return is_intent_name("ProgramProgressIntent")(handler_input)
+
+    def handle(self, handler_input: HandlerInput) -> Response:
+        resolved = _resolve_api_key(handler_input)
+        if isinstance(resolved, Response):
+            return resolved
+        settings, api_key = resolved
+
+        query = get_slot_value(handler_input, "ProgramName") or ""
+        if not query.strip():
+            speech = "Für welchen Studiengang möchtest du den Fortschritt wissen?"
+            return handler_input.response_builder.speak(speech).ask(speech).response
+
+        base_url = str(settings.studylife_base_url)
+        try:
+            programs = list_study_programs_sync(base_url, api_key)
+            program = _find_program_by_name(programs, query)
+            if program is None or program.get("id") is None:
+                speech = f"Ich konnte keinen Studiengang namens {query} finden."
+                return _answer(handler_input, speech)
+
+            detail = get_study_program_sync(base_url, api_key, int(program["id"]))
+            courses = list_courses_sync(base_url, api_key)
+            goals = list_course_goals_sync(base_url, api_key)
+        except StudyLifeApiError:
+            return _unreachable_response(handler_input)
+
+        completed_ects, total_ects = _program_progress(detail, courses, goals)
+        program_name = str(detail.get("name", query))
+        if total_ects == 0:
+            speech = f"Für {program_name} sind aktuell keine ECTS-Quoten hinterlegt."
+        else:
+            speech = (
+                f"Du hast {completed_ects} von {total_ects} ECTS in {program_name} abgeschlossen."
+            )
+        return _answer(handler_input, speech)
+
+
 class SearchNotesIntentHandler(AbstractRequestHandler):
     def can_handle(self, handler_input: HandlerInput) -> bool:
         return is_intent_name("SearchNotesIntent")(handler_input)
@@ -385,6 +514,28 @@ class SearchNotesIntentHandler(AbstractRequestHandler):
                 f"Ich habe {_pluralize(len(notes), 'Notiz', 'Notizen')} zu {query} gefunden, "
                 f"unter anderem: {titles}."
             )
+        return _answer(handler_input, speech)
+
+
+class NotesOverviewIntentHandler(AbstractRequestHandler):
+    def can_handle(self, handler_input: HandlerInput) -> bool:
+        return is_intent_name("NotesOverviewIntent")(handler_input)
+
+    def handle(self, handler_input: HandlerInput) -> Response:
+        resolved = _resolve_api_key(handler_input)
+        if isinstance(resolved, Response):
+            return resolved
+        settings, api_key = resolved
+
+        try:
+            notes = list_notes_sync(str(settings.studylife_base_url), api_key)
+        except StudyLifeApiError:
+            return _unreachable_response(handler_input)
+
+        if not notes:
+            speech = "Du hast aktuell keine Notizen in StudyLife."
+        else:
+            speech = f"Du hast insgesamt {_pluralize(len(notes), 'Notiz', 'Notizen')} in StudyLife."
         return _answer(handler_input, speech)
 
 

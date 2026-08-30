@@ -10,6 +10,9 @@ from studylife_alexa.handlers import (
     FallbackIntentHandler,
     HelpIntentHandler,
     LaunchRequestHandler,
+    NextSessionIntentHandler,
+    NotesOverviewIntentHandler,
+    ProgramProgressIntentHandler,
     RecentSessionsIntentHandler,
     SearchNotesIntentHandler,
     SessionEndedRequestHandler,
@@ -30,9 +33,12 @@ def build_skill(settings: Settings):
     sb.add_request_handler(TimerStatusIntentHandler())
     sb.add_request_handler(StudyTimeIntentHandler())
     sb.add_request_handler(RecentSessionsIntentHandler())
+    sb.add_request_handler(NextSessionIntentHandler())
     sb.add_request_handler(CourseGoalsIntentHandler())
     sb.add_request_handler(StudyProgramsIntentHandler())
+    sb.add_request_handler(ProgramProgressIntentHandler())
     sb.add_request_handler(SearchNotesIntentHandler())
+    sb.add_request_handler(NotesOverviewIntentHandler())
     sb.add_request_handler(CreateNoteIntentHandler())
     sb.add_request_handler(HelpIntentHandler())
     sb.add_request_handler(FallbackIntentHandler())

@@ -10,12 +10,20 @@ the focus timer and study sessions, account-linked to your own StudyLife instanc
 - `CoursesIntent` - "wie viele Kurse habe ich"
 - `TimerStatusIntent` - "läuft mein Fokus-Timer" (read-only - `TimerState` has no
   publicly-grantable start/stop scope, only `Get`)
-- `StudyTimeIntent` - "wie lange habe ich {heute/diese Woche/diesen Monat} gelernt"
-  (custom `TimePeriod` slot)
+- `StudyTimeIntent` - "wie lange habe ich {heute/diese Woche/letzte Woche/diesen
+  Monat/letzten Monat} gelernt" (custom `TimePeriod` slot, 5 rolling windows - see
+  `_period_for_time_period` in `handlers.py`)
 - `RecentSessionsIntent` - "zeig meine letzten Lernsessions"
+- `NextSessionIntent` - "wann ist meine nächste Lernsession" (`/api/sessions`, unlike
+  `RecentSessionsIntent`/`StudyTimeIntent` which use `/api/sessions/history` - the only
+  endpoint that returns future/scheduled sessions at all)
 - `CourseGoalsIntent` - "was sind meine Lernziele"
 - `StudyProgramsIntent` - "zeig meine Studiengänge"
+- `ProgramProgressIntent` - "wie ist mein Fortschritt im Studiengang {ProgramName}" -
+  `StudyPrograms.Get` only returns per-group ECTS quotas, not actual progress, so this
+  derives completed ECTS itself from `Courses` + `CourseGoals` (see `_program_progress`)
 - `SearchNotesIntent` - "suche Notizen zu {SearchQuery}"
+- `NotesOverviewIntent` - "wie viele Notizen habe ich insgesamt"
 - `CreateNoteIntent` - "erstelle eine Notiz {NoteContent}"
 - `AMAZON.HelpIntent` / `AMAZON.FallbackIntent` / `AMAZON.CancelIntent` /
   `AMAZON.StopIntent` - built-ins
