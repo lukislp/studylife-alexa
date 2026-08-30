@@ -1,3 +1,10 @@
+## [0.5.1](https://github.com/lukislp/studylife-alexa/compare/v0.5.0...v0.5.1) (2026-08-30)
+
+
+### Bug Fixes
+
+* keep the session open after answering, and fix hour/minute grammar ([aaf19ea](https://github.com/lukislp/studylife-alexa/commit/aaf19ea796ce8654402bc2d36c167820d2b81da4))
+
 # [0.5.0](https://github.com/lukislp/studylife-alexa/compare/v0.4.3...v0.5.0) (2026-08-30)
 
 
