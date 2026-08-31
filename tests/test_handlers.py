@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import pytest
 from ask_sdk_model.request_envelope import RequestEnvelope
 
+from conftest import TEST_INSTANCE_URL
 from studylife_alexa import handlers
 from studylife_alexa.oauth_store import OAuthStore
 from studylife_alexa.strings import DeStrings, EnStrings
@@ -70,13 +71,13 @@ def _speech(response_body: dict) -> str:
     return response_body["response"]["outputSpeech"]["ssml"]
 
 
-async def _link_account(access_token: str, api_key: str) -> None:
+async def _link_account(access_token: str, api_key: str, base_url: str = TEST_INSTANCE_URL) -> None:
     from studylife_alexa.config import Settings
 
     settings = Settings()  # type: ignore[call-arg]
     store = OAuthStore(settings.alexa_oauth_db_path, settings.alexa_token_encryption_key or "")
     await store.initialize()
-    await store.save_access_token(access_token, api_key)
+    await store.save_access_token(access_token, api_key, base_url)
 
 
 def test_courses_intent_without_linked_account_prompts_to_link() -> None:
@@ -89,12 +90,7 @@ def test_courses_intent_without_linked_account_prompts_to_link() -> None:
 async def test_courses_intent_with_linked_account_calls_studylife(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from studylife_alexa.config import Settings
-
-    settings = Settings()  # type: ignore[call-arg]
-    store = OAuthStore(settings.alexa_oauth_db_path, settings.alexa_token_encryption_key or "")
-    await store.initialize()
-    await store.save_access_token("real-alexa-access-token", "fake-studylife-api-key")
+    await _link_account("real-alexa-access-token", "fake-studylife-api-key")
 
     monkeypatch.setattr(
         handlers, "list_courses_sync", lambda base_url, api_key: [{"id": 1}, {"id": 2}]

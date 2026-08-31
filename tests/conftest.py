@@ -12,8 +12,7 @@ os.environ["ALEXA_REDIRECT_URIS"] = (
     "https://layla.amazon.com/api/skill/link/TEST,"
     "https://alexa.amazon.co.jp/api/skill/link/TEST"
 )
-os.environ["STUDYLIFE_CONNECT_URL"] = "https://studylife.example.com"
-os.environ["STUDYLIFE_BASE_URL"] = "https://studylife.example.com"
+os.environ["STUDYLIFE_DEFAULT_INSTANCE_URL"] = "https://studylife.example.com"
 # A real (if throwaway) Fernet key, not the module's own random-fallback - deterministic
 # across test runs, and exercises the same code path production actually uses.
 os.environ["ALEXA_TOKEN_ENCRYPTION_KEY"] = "uIRpmPnsEoqKZQfaexXSeFjtrMGnBIrLa8mQBC09Jug="
@@ -21,3 +20,9 @@ os.environ["ALEXA_TOKEN_ENCRYPTION_KEY"] = "uIRpmPnsEoqKZQfaexXSeFjtrMGnBIrLa8mQ
 _TEST_DB_PATH = Path(__file__).parent / "test_oauth.db"
 _TEST_DB_PATH.unlink(missing_ok=True)
 os.environ["ALEXA_OAUTH_DB_PATH"] = str(_TEST_DB_PATH)
+
+# The instance URL most tests link their fake account against - matches
+# STUDYLIFE_DEFAULT_INSTANCE_URL above, but tests should import this constant rather
+# than the env var directly (multi-tenant means each linked account can carry its own
+# distinct instance URL, this is just the common-case default).
+TEST_INSTANCE_URL = "https://studylife.example.com"

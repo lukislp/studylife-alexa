@@ -4,7 +4,7 @@ TestIntentHandler is Phase-A scaffolding (canned response, proved out the endpoi
 signature-verification/deployment pipeline before any real functionality existed) -
 kept around as a no-account-needed connectivity check. Every other intent below (besides
 the built-ins) is a real StudyLife-backed call, sharing the same
-account-linking-resolution/error-handling shape via _resolve_api_key/_link_account_response.
+account-linking-resolution/error-handling shape via _resolve_linked_account/_link_account_response.
 
 All user-facing text is looked up per-request from strings.py via get_strings(locale) -
 see that module's own docstring for why business logic here stays language-independent
@@ -43,30 +43,32 @@ from studylife_alexa.client import (
     search_notes_sync,
 )
 from studylife_alexa.config import Settings
-from studylife_alexa.oauth_store import load_access_token_sync
+from studylife_alexa.oauth_store import LinkedAccount, load_access_token_sync
 from studylife_alexa.strings import _Strings, get_strings, period_for_time_period
 
 
-def _resolve_api_key(
+def _resolve_linked_account(
     handler_input: HandlerInput, strings: type[_Strings]
-) -> tuple[Settings, str] | Response:
+) -> LinkedAccount | Response:
     """Shared account-linking resolution for every StudyLife-backed intent below.
-    Returns (settings, api_key) on success, or a ready-to-return Response (a
+    Returns the caller's LinkedAccount (api_key, base_url) on success - base_url is
+    THEIR instance, chosen during account linking, not a global setting (see
+    oauth_store.py's module docstring) - or a ready-to-return Response (a
     LinkAccountCard prompt) the caller should return immediately as-is."""
     alexa_access_token = get_account_linking_access_token(handler_input)
     if alexa_access_token is None:
         return _link_account_response(handler_input, strings.NOT_LINKED)
 
     settings = Settings()  # type: ignore[call-arg]
-    api_key = load_access_token_sync(
+    linked = load_access_token_sync(
         settings.alexa_oauth_db_path,
         settings.alexa_token_encryption_key or "",
         alexa_access_token,
     )
-    if api_key is None:
+    if linked is None:
         return _link_account_response(handler_input, strings.EXPIRED_LINK)
 
-    return settings, api_key
+    return linked
 
 
 def _link_account_response(handler_input: HandlerInput, speech: str) -> Response:
@@ -119,13 +121,13 @@ class CoursesIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         try:
-            courses = list_courses_sync(str(settings.studylife_base_url), api_key)
+            courses = list_courses_sync(linked.base_url, linked.api_key)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
@@ -139,13 +141,13 @@ class TimerStatusIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         try:
-            state = get_timer_state_sync(str(settings.studylife_base_url), api_key)
+            state = get_timer_state_sync(linked.base_url, linked.api_key)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
@@ -208,17 +210,17 @@ class StudyTimeIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         fetch_days, start_days_ago, end_days_ago, label = period_for_time_period(
             strings, get_slot_value(handler_input, "TimePeriod")
         )
         try:
             sessions = get_session_history_sync(
-                str(settings.studylife_base_url), api_key, fetch_days, only_completed=False
+                linked.base_url, linked.api_key, fetch_days, only_completed=False
             )
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
@@ -238,13 +240,13 @@ class RecentSessionsIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         try:
-            sessions = get_session_history_sync(str(settings.studylife_base_url), api_key, days=7)
+            sessions = get_session_history_sync(linked.base_url, linked.api_key, days=7)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
@@ -283,16 +285,16 @@ class NextSessionIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         try:
             # list_all_sessions_sync (/api/sessions), NOT get_session_history_sync
             # (/api/sessions/history) - the history endpoint only ever looks backward
             # from now, so it can never contain a future/scheduled session.
-            sessions = list_all_sessions_sync(str(settings.studylife_base_url), api_key)
+            sessions = list_all_sessions_sync(linked.base_url, linked.api_key)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
@@ -311,13 +313,13 @@ class CourseGoalsIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         try:
-            goals = list_course_goals_sync(str(settings.studylife_base_url), api_key)
+            goals = list_course_goals_sync(linked.base_url, linked.api_key)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
@@ -335,13 +337,13 @@ class StudyProgramsIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         try:
-            programs = list_study_programs_sync(str(settings.studylife_base_url), api_key)
+            programs = list_study_programs_sync(linked.base_url, linked.api_key)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
@@ -411,19 +413,19 @@ class ProgramProgressIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         query = get_slot_value(handler_input, "ProgramName") or ""
         if not query.strip():
             speech = strings.PROGRAM_PROGRESS_ASK
             return handler_input.response_builder.speak(speech).ask(speech).response
 
-        base_url = str(settings.studylife_base_url)
+        base_url = linked.base_url
         try:
-            programs = list_study_programs_sync(base_url, api_key)
+            programs = list_study_programs_sync(base_url, linked.api_key)
             program = _find_program_by_name(programs, query)
             if program is None:
                 speech = strings.program_not_found(query)
@@ -438,14 +440,14 @@ class ProgramProgressIntentHandler(AbstractRequestHandler):
                 # unconditionally server-side (MetricsController.ResolveProgrammeAsync),
                 # regardless of which program is currently active.
                 program_name = str(program.get("name", query))
-                summary = get_metrics_summary_sync(base_url, api_key, program=0)
+                summary = get_metrics_summary_sync(base_url, linked.api_key, program=0)
                 ects = summary.get("ects") or {}
                 completed_ects = int(ects.get("earned", 0))  # type: ignore[union-attr]
                 total_ects = int(ects.get("total", 0))  # type: ignore[union-attr]
             else:
-                detail = get_study_program_sync(base_url, api_key, int(program["id"]))
-                courses = list_courses_sync(base_url, api_key)
-                goals = list_course_goals_sync(base_url, api_key)
+                detail = get_study_program_sync(base_url, linked.api_key, int(program["id"]))
+                courses = list_courses_sync(base_url, linked.api_key)
+                goals = list_course_goals_sync(base_url, linked.api_key)
                 completed_ects, total_ects = _program_progress(detail, courses, goals)
                 program_name = str(detail.get("name", query))
         except StudyLifeApiError:
@@ -464,10 +466,10 @@ class SearchNotesIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         query = get_slot_value(handler_input, "SearchQuery") or ""
         if not query.strip():
@@ -475,7 +477,7 @@ class SearchNotesIntentHandler(AbstractRequestHandler):
             return handler_input.response_builder.speak(speech).ask(speech).response
 
         try:
-            notes = search_notes_sync(str(settings.studylife_base_url), api_key, query)
+            notes = search_notes_sync(linked.base_url, linked.api_key, query)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
@@ -493,13 +495,13 @@ class NotesOverviewIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         try:
-            notes = list_notes_sync(str(settings.studylife_base_url), api_key)
+            notes = list_notes_sync(linked.base_url, linked.api_key)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
@@ -513,10 +515,10 @@ class CreateNoteIntentHandler(AbstractRequestHandler):
 
     def handle(self, handler_input: HandlerInput) -> Response:
         strings = get_strings(get_locale(handler_input))
-        resolved = _resolve_api_key(handler_input, strings)
+        resolved = _resolve_linked_account(handler_input, strings)
         if isinstance(resolved, Response):
             return resolved
-        settings, api_key = resolved
+        linked = resolved
 
         content = get_slot_value(handler_input, "NoteContent") or ""
         if not content.strip():
@@ -525,7 +527,7 @@ class CreateNoteIntentHandler(AbstractRequestHandler):
 
         title = strings.note_title(f"{datetime.now():%d.%m.%Y}")
         try:
-            create_note_sync(str(settings.studylife_base_url), api_key, title, content)
+            create_note_sync(linked.base_url, linked.api_key, title, content)
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
