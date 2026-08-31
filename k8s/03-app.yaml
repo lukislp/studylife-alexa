@@ -52,7 +52,7 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: studylife-alexa
-          image: ghcr.io/lukislp/studylife-alexa:0.9.2 # {"$imagepolicy": "flux-system:studylife-alexa"}
+          image: ghcr.io/lukislp/studylife-alexa:0.9.3 # {"$imagepolicy": "flux-system:studylife-alexa"}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: ["ALL"]}
