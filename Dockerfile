@@ -3,6 +3,15 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# StudyLife's own server pins the same TZ (src/StudyLife.Server/Dockerfile) because every
+# persisted StartTime/EndTime is a NAIVE local timestamp, not UTC (see studylife's
+# docs/ARCHITECTURE.md "Single-Timezone Invariant") - this container's own datetime.now()
+# calls (handlers.py's session-window filtering, elapsed-time clamping) must agree with
+# that same wall-clock frame or every comparison against an API-supplied timestamp is off
+# by the host's UTC offset. Found live: python:3.12-slim defaults to UTC, which silently
+# undercounted "how long have I studied today" by exactly the CEST/CET offset.
+ENV TZ=Europe/Berlin
+
 RUN pip install --no-cache-dir uv
 
 WORKDIR /app
