@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/lukislp/studylife-alexa/compare/v0.7.2...v0.8.0) (2026-08-31)
+
+
+### Features
+
+* fetch built-in study program progress via Metrics.GetSummary ([f8b5632](https://github.com/lukislp/studylife-alexa/commit/f8b56322ca3625c03795a9918c4a68f31bd0dc5f)), closes [studylife#114](https://github.com/studylife/issues/114)
+
 ## [0.7.2](https://github.com/lukislp/studylife-alexa/compare/v0.7.1...v0.7.2) (2026-08-31)
 
 
