@@ -179,17 +179,25 @@ def _filter_sessions_by_window(
 
 
 def _sum_session_minutes(sessions: list[dict[str, object]]) -> int:
+    """Clamps each session's end to "now" before summing - a session fetched with
+    only_completed=False can have EndTime in the future (still running / scheduled
+    but not yet marked done), and counting its full scheduled duration would report
+    study time that hasn't actually happened yet. This counts elapsed time only.
+    Can't distinguish "genuinely being studied right now" from "just blocked out in
+    advance and not started" from the session data alone - a real limitation, not
+    something this clamp can fix."""
+    now = datetime.now()
     total_seconds = 0.0
     for session in sessions:
         start, end = session.get("startTime"), session.get("endTime")
         if not isinstance(start, str) or not isinstance(end, str):
             continue
         try:
-            total_seconds += (
-                datetime.fromisoformat(end) - datetime.fromisoformat(start)
-            ).total_seconds()
+            start_dt = datetime.fromisoformat(start)
+            end_dt = min(datetime.fromisoformat(end), now)
         except ValueError:
             continue
+        total_seconds += max(0.0, (end_dt - start_dt).total_seconds())
     return int(total_seconds // 60)
 
 
@@ -209,7 +217,7 @@ class StudyTimeIntentHandler(AbstractRequestHandler):
         )
         try:
             sessions = get_session_history_sync(
-                str(settings.studylife_base_url), api_key, fetch_days
+                str(settings.studylife_base_url), api_key, fetch_days, only_completed=False
             )
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)

@@ -112,9 +112,16 @@ def get_timer_state_sync(base_url: str, api_key: str) -> dict[str, object]:
 
 
 def get_session_history_sync(
-    base_url: str, api_key: str, days: int | None = None
+    base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
 ) -> list[dict[str, object]]:
+    """only_completed mirrors SessionsController.GetHistory's own onlyCompleted param
+    (default True there too) - False also returns sessions that haven't finished yet
+    (EndTime in the future, IsCompleted still False), needed for "how much have I
+    studied so far" queries that should count an in-progress session's elapsed time,
+    not just already-finished ones."""
     params: dict[str, object] = {"days": days} if days is not None else {}
+    if not only_completed:
+        params["onlyCompleted"] = False
     return list(_sync_get(base_url, api_key, "/api/sessions/history", params).json())
 
 

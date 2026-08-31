@@ -193,7 +193,7 @@ async def test_study_time_intent_today_under_an_hour(monkeypatch: pytest.MonkeyP
     end = start + timedelta(minutes=45)
 
     def fake_get_session_history_sync(
-        base_url: str, api_key: str, days: int | None = None
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
     ) -> list[dict[str, object]]:
         recorded_days.append(days)
         return [{"startTime": start.isoformat(), "endTime": end.isoformat()}]
@@ -208,6 +208,42 @@ async def test_study_time_intent_today_under_an_hour(monkeypatch: pytest.MonkeyP
     assert "Du hast heute 45 Minuten gelernt." in _speech(body)
 
 
+async def test_study_time_intent_today_includes_in_progress_session(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: /api/sessions/history's default onlyCompleted=true hides a session
+    that's already started but not yet finished (EndTime in the future, IsCompleted
+    still false) - reported live via a 7-hour block session (11:00-18:00) queried at
+    14:43 that answered "haven't studied today yet" instead of counting the ~4h
+    already elapsed. StudyTimeIntent must fetch with only_completed=False and clamp
+    the still-running session's end to now, not its full scheduled duration."""
+    await _link_account("study-time-token-in-progress", "fake-api-key")
+    recorded_only_completed: list[bool] = []
+
+    start = datetime.now() - timedelta(hours=2)
+    scheduled_end = datetime.now() + timedelta(hours=3)  # not finished yet
+
+    def fake_get_session_history_sync(
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
+    ) -> list[dict[str, object]]:
+        recorded_only_completed.append(only_completed)
+        return [{"startTime": start.isoformat(), "endTime": scheduled_end.isoformat()}]
+
+    monkeypatch.setattr(handlers, "get_session_history_sync", fake_get_session_history_sync)
+
+    body = _invoke(
+        "StudyTimeIntent",
+        access_token="study-time-token-in-progress",
+        slots={"TimePeriod": "heute"},
+    )
+
+    assert recorded_only_completed == [False]
+    speech = _speech(body)
+    # ~2h elapsed so far, not the full 5h scheduled block.
+    assert "2 Stunden" in speech
+    assert "5 Stunden" not in speech
+
+
 async def test_study_time_intent_this_week_over_an_hour(monkeypatch: pytest.MonkeyPatch) -> None:
     await _link_account("study-time-token-week", "fake-api-key")
     recorded_days: list[int | None] = []
@@ -216,7 +252,7 @@ async def test_study_time_intent_this_week_over_an_hour(monkeypatch: pytest.Monk
     second_start = datetime.now() - timedelta(days=3)
 
     def fake_get_session_history_sync(
-        base_url: str, api_key: str, days: int | None = None
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
     ) -> list[dict[str, object]]:
         recorded_days.append(days)
         return [
@@ -253,7 +289,7 @@ async def test_study_time_intent_last_week_excludes_this_week(
     last_week_start = datetime.now() - timedelta(days=10)
 
     def fake_get_session_history_sync(
-        base_url: str, api_key: str, days: int | None = None
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
     ) -> list[dict[str, object]]:
         recorded_days.append(days)
         return [
@@ -284,7 +320,7 @@ async def test_study_time_intent_this_month_no_sessions(monkeypatch: pytest.Monk
     recorded_days: list[int | None] = []
 
     def fake_get_session_history_sync(
-        base_url: str, api_key: str, days: int | None = None
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
     ) -> list[dict[str, object]]:
         recorded_days.append(days)
         return []
@@ -306,7 +342,9 @@ async def test_study_time_intent_unreachable(monkeypatch: pytest.MonkeyPatch) ->
 
     await _link_account("study-time-token-unreachable", "fake-api-key")
 
-    def _raise(base_url: str, api_key: str, days: int | None = None) -> list[dict[str, object]]:
+    def _raise(
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
+    ) -> list[dict[str, object]]:
         raise StudyLifeApiError(503, "down")
 
     monkeypatch.setattr(handlers, "get_session_history_sync", _raise)
@@ -337,7 +375,7 @@ async def test_recent_sessions_intent_with_sessions(monkeypatch: pytest.MonkeyPa
     recorded_days: list[int | None] = []
 
     def fake_get_session_history_sync(
-        base_url: str, api_key: str, days: int | None = None
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
     ) -> list[dict[str, object]]:
         recorded_days.append(days)
         return [
@@ -372,7 +410,9 @@ async def test_recent_sessions_intent_unreachable(monkeypatch: pytest.MonkeyPatc
 
     await _link_account("recent-sessions-token-unreachable", "fake-api-key")
 
-    def _raise(base_url: str, api_key: str, days: int | None = None) -> list[dict[str, object]]:
+    def _raise(
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
+    ) -> list[dict[str, object]]:
         raise StudyLifeApiError(503, "down")
 
     monkeypatch.setattr(handlers, "get_session_history_sync", _raise)
@@ -1244,7 +1284,7 @@ async def test_study_time_intent_en_us_last_week_excludes_this_week(
     last_week_end = last_week_start + timedelta(hours=2)
 
     def fake_get_session_history_sync(
-        base_url: str, api_key: str, days: int | None = None
+        base_url: str, api_key: str, days: int | None = None, only_completed: bool = True
     ) -> list[dict[str, object]]:
         return [
             {"startTime": this_week_start.isoformat(), "endTime": this_week_end.isoformat()},
