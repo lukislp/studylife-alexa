@@ -157,14 +157,6 @@ def test_en_program_progress_and_zero() -> None:
     )
 
 
-def test_de_program_builtin_no_data() -> None:
-    assert "eingebauten Studiengang" in DeStrings.program_builtin_no_data("Applied AI")
-
-
-def test_en_program_builtin_no_data() -> None:
-    assert "built-in study program" in EnStrings.program_builtin_no_data("Applied AI")
-
-
 def test_de_search_notes_found_and_none() -> None:
     assert DeStrings.search_notes_none("Mathe") == "Ich habe keine Notizen zu Mathe gefunden."
     found = DeStrings.search_notes_found(2, "Mathe", "Titel A, Titel B")

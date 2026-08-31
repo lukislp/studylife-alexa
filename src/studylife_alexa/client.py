@@ -137,6 +137,16 @@ def get_study_program_sync(base_url: str, api_key: str, program_id: int) -> dict
     return dict(_sync_get(base_url, api_key, f"/api/studyprograms/{program_id}").json())
 
 
+def get_metrics_summary_sync(base_url: str, api_key: str, program: int = 0) -> dict[str, object]:
+    """program=0 resolves the built-in study program unconditionally (never the user's
+    currently active one) - see StudyLife's own MetricsController.ResolveProgrammeAsync.
+    This is the only way to read the built-in program's ECTS progress at all:
+    StudyPrograms.Get is int-id-only and the built-in program has no DB row/int id to
+    route to, while MetricsSummaryDto.Ects.{Earned,Total} computes it server-side from
+    CourseCatalog.GroupEctsQuotas regardless. Requires the Metrics.GetSummary scope."""
+    return dict(_sync_get(base_url, api_key, "/api/metrics/summary", {"program": program}).json())
+
+
 def list_all_sessions_sync(base_url: str, api_key: str) -> list[dict[str, object]]:
     """Unlike get_session_history_sync (/api/sessions/history, a trailing window from
     now), this hits plain /api/sessions - unbounded, includes future/scheduled sessions

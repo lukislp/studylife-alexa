@@ -99,10 +99,6 @@ class _Strings:
         raise NotImplementedError
 
     @staticmethod
-    def program_builtin_no_data(program_name: str) -> str:
-        raise NotImplementedError
-
-    @staticmethod
     def program_progress_zero(program_name: str) -> str:
         raise NotImplementedError
 
@@ -233,13 +229,6 @@ class DeStrings(_Strings):
         return f"Ich konnte keinen Studiengang namens {query} finden."
 
     @staticmethod
-    def program_builtin_no_data(program_name: str) -> str:
-        return (
-            f"Für den eingebauten Studiengang {program_name} sind über die "
-            "Schnittstelle leider keine Fortschrittsdaten verfügbar."
-        )
-
-    @staticmethod
     def program_progress_zero(program_name: str) -> str:
         return f"Für {program_name} sind aktuell keine ECTS-Quoten hinterlegt."
 
@@ -365,13 +354,6 @@ class EnStrings(_Strings):
     @staticmethod
     def program_not_found(query: str) -> str:
         return f"I couldn't find a study program named {query}."
-
-    @staticmethod
-    def program_builtin_no_data(program_name: str) -> str:
-        return (
-            f"Progress data isn't available through the interface for the built-in "
-            f"study program {program_name}."
-        )
 
     @staticmethod
     def program_progress_zero(program_name: str) -> str:
