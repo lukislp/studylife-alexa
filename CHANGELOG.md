@@ -1,3 +1,10 @@
+## [0.9.2](https://github.com/lukislp/studylife-alexa/compare/v0.9.1...v0.9.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* match StudyLife's own design system on the account-linking pages, stop mobile input zoom ([5bd4e96](https://github.com/lukislp/studylife-alexa/commit/5bd4e9688d6e9eb1b461d9aa680443a94f1994e1))
+
 ## [0.9.1](https://github.com/lukislp/studylife-alexa/compare/v0.9.0...v0.9.1) (2026-08-31)
 
 
