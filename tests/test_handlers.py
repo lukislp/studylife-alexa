@@ -1355,6 +1355,23 @@ def test_cancel_intent_en_us_goodbye() -> None:
     assert body["response"]["shouldEndSession"] is True
 
 
+def test_navigate_home_intent_de_de() -> None:
+    body = _invoke("AMAZON.NavigateHomeIntent", access_token=None)
+
+    assert DeStrings.NAVIGATE_HOME in _speech(body)
+    # Regression: without a dedicated handler this fell through to the generic
+    # CatchAllExceptionHandler error message instead of a purpose-built reply.
+    assert DeStrings.ERROR not in _speech(body)
+    assert body["response"]["shouldEndSession"] is False
+
+
+def test_navigate_home_intent_en_us() -> None:
+    body = _invoke("AMAZON.NavigateHomeIntent", access_token=None, locale="en-US")
+
+    assert EnStrings.NAVIGATE_HOME in _speech(body)
+    assert EnStrings.ERROR not in _speech(body)
+
+
 async def test_timer_status_intent_en_us_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
     from studylife_alexa.client import StudyLifeApiError
 
