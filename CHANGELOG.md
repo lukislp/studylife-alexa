@@ -1,3 +1,10 @@
+## [0.9.1](https://github.com/lukislp/studylife-alexa/compare/v0.9.0...v0.9.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* remove the instance-URL pre-fill default entirely ([b6b4c38](https://github.com/lukislp/studylife-alexa/commit/b6b4c388452737acd325cd628308c52541ddf5ea))
+
 # [0.9.0](https://github.com/lukislp/studylife-alexa/compare/v0.8.0...v0.9.0) (2026-08-31)
 
 
