@@ -121,6 +121,14 @@ Self-hosted (K3s + Tailscale Funnel), same pattern as
 `ALEXA_VERIFY_REQUESTS=true` (the default) in any deployed environment - it's only ever
 disabled for local testing with a hand-crafted, unsigned request body.
 
+## Privacy & Terms
+
+[PRIVACY.md](PRIVACY.md) / [TERMS.md](TERMS.md) - the URLs the Alexa Developer Console's
+Distribution tab wants (link directly to the GitHub blob, e.g.
+`https://github.com/lukislp/studylife-alexa/blob/main/PRIVACY.md` - no separate hosting
+needed, same pattern as [studylife-capture](https://github.com/lukislp/studylife-capture)'s
+own `PRIVACY.md`).
+
 ## License
 
 AGPL-3.0
