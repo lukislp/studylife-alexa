@@ -73,9 +73,20 @@ account linking - a small OAuth 2.0 Authorization Code Grant server
 (identity-contract-v1 SS2, the same one [studylife-cli](https://github.com/lukislp/studylife-cli)
 uses), rather than exposing StudyLife's login to Alexa directly.
 
-1. Register this skill as an ordinary add-on on your own
-   [studylife-developers](https://github.com/lukislp/studylife-developers) instance:
-   **Client ID**: `studylife-alexa`, **Allowed redirect URIs**:
+**Multi-tenant**: this server is not wired to one fixed StudyLife instance. Every user
+names their own self-hosted instance during linking - `/authorize` shows a small form
+asking for it (pinging `/api/system/version` first to catch a typo'd/unreachable URL
+before ever redirecting there) - and that URL travels alongside their API key through
+the whole flow (see `oauth_store.py`'s module docstring). Two different people (or two
+accounts on the *same* shared instance - the instance URL is just routing, not
+identity) can link independently without stepping on each other.
+
+Setting this server up (once, by whoever deploys it) still needs:
+
+1. Register this skill as an ordinary add-on on **your own**
+   [studylife-developers](https://github.com/lukislp/studylife-developers) instance
+   (each user who wants to link an account does this on THEIR OWN instance, not the
+   deployer's): **Client ID**: `studylife-alexa`, **Allowed redirect URIs**:
    `https://<your-public-url>/oauth/studylife/callback`. Scopes, matching the intents
    in [Status](#status) above: Read the course catalog, Read live timer state, Read
    session history, Read course goals, Read study programs, Read metrics summary,
@@ -97,11 +108,13 @@ uses), rather than exposing StudyLife's login to Alexa directly.
      see `config.py`'s own comment on `alexa_redirect_uris`) into `ALEXA_REDIRECT_URIS`,
      comma-separated
 4. Set `ALEXA_PUBLIC_URL`, `ALEXA_CLIENT_ID`, `ALEXA_CLIENT_SECRET`, `ALEXA_REDIRECT_URIS`,
-   `STUDYLIFE_CONNECT_URL`, `STUDYLIFE_BASE_URL`, and `ALEXA_TOKEN_ENCRYPTION_KEY` (see
-   `.env.example`).
+   and `ALEXA_TOKEN_ENCRYPTION_KEY` (see `.env.example`).
+   `STUDYLIFE_DEFAULT_INSTANCE_URL` is optional - only pre-fills the instance-selection
+   form below, doesn't fix anyone to one instance.
 5. In the Alexa app (or the console's Test tab), linking the account opens
-   `/authorize`, which redirects to StudyLife's own login/consent page - approve it,
-   and StudyLife redirects back through this server to Alexa.
+   `/authorize`, which asks for the user's own StudyLife instance URL, then redirects to
+   THAT instance's own login/consent page - approve it, and StudyLife redirects back
+   through this server to Alexa.
 
 ## Deployment
 
