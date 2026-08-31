@@ -1,3 +1,15 @@
+# [0.9.0](https://github.com/lukislp/studylife-alexa/compare/v0.8.0...v0.9.0) (2026-08-31)
+
+
+### Bug Fixes
+
+* migrate the OAuth store schema in place for existing deployments ([70d0022](https://github.com/lukislp/studylife-alexa/commit/70d0022d22fa77f54c1251032a80955799bf4e92))
+
+
+### Features
+
+* multi-tenant account linking - each user picks their own instance ([ea2f513](https://github.com/lukislp/studylife-alexa/commit/ea2f5137ce925edc8c0e9ed5caf5baa714619b5b))
+
 # [0.8.0](https://github.com/lukislp/studylife-alexa/compare/v0.7.2...v0.8.0) (2026-08-31)
 
 
