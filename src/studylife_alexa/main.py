@@ -1,10 +1,12 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from ask_sdk_runtime.exceptions import AskSdkException
 from ask_sdk_webservice_support.webservice_handler import WebserviceSkillHandler
 from cryptography.fernet import Fernet
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from studylife_alexa.config import Settings
 from studylife_alexa.oauth_provider import register_oauth_routes
@@ -40,6 +42,11 @@ _webservice_handler = WebserviceSkillHandler(
 )
 
 register_oauth_routes(app, _store, _settings)
+
+# Just the StudyLife app icon, for the instance-selection form's logo (oauth_provider.py) -
+# small enough that mounting a directory (rather than a single dedicated route) isn't
+# over-engineering it, and keeps the icon file itself out of the Python source.
+app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 
 @app.post("/alexa/skill")

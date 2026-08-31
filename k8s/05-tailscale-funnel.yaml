@@ -20,8 +20,10 @@
 # must reach directly from the public internet - /authorize (the user's browser, redirected
 # here by Alexa's Account Linking flow), /oauth/studylife/callback (the user's browser again,
 # redirected here by StudyLife's own connect flow), and /token (Alexa's backend,
-# server-to-server). /healthz is deliberately absent - it's operator-only, has no reason to be
-# internet-facing, and stays reachable only via a port-forward/exec if ever needed.
+# server-to-server). /static is the account-linking pages' own logo image (oauth_provider.py) -
+# needed alongside them for the same browsers. /healthz is deliberately absent - it's
+# operator-only, has no reason to be internet-facing, and stays reachable only via a
+# port-forward/exec if ever needed.
 #
 # Bootstrap-only, NOT Flux-managed - same RBAC reasoning as k8s/00-namespace.yaml/
 # k8s/02-secret.yaml/k8s/04-network-policies.yaml (kustomize-controller's ClusterRole has no
@@ -54,6 +56,9 @@ spec:
             pathType: Prefix
             backend: {service: {name: studylife-alexa, port: {number: 8000}}}
           - path: /token
+            pathType: Prefix
+            backend: {service: {name: studylife-alexa, port: {number: 8000}}}
+          - path: /static
             pathType: Prefix
             backend: {service: {name: studylife-alexa, port: {number: 8000}}}
   tls:

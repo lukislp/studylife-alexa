@@ -49,39 +49,119 @@ from studylife_alexa.client import CLIENT_ID, exchange_assertion
 from studylife_alexa.config import Settings
 from studylife_alexa.oauth_store import ACCESS_TOKEN_TTL_SECONDS, OAuthStore
 
-_ERROR_PAGE = """<!doctype html>
-<html lang="en">
-<head><meta charset="utf-8"><title>{title}</title></head>
-<body style="font-family: sans-serif; text-align: center; padding-top: 3rem;">
-<p>{message}</p>
-</body>
-</html>
+# Mirrors StudyLife's own design system (studylife/src/StudyLife.Client/wwwroot/css/
+# base.css) - same font, color tokens, and dark/light handling, so this account-linking
+# page doesn't look like a different product from the one it's connecting to.
+#
+# The 16px input font-size is deliberate, not copied from base.css's own smaller
+# 0.875rem .input class: iOS Safari auto-zooms on focusing any input whose *computed*
+# font-size is under 16px, regardless of the (also required) viewport meta tag below -
+# both are needed together to stop the unwanted zoom-on-tap on a phone.
+_BASE_STYLE = """
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;1,9..40,400&display=swap"
+  rel="stylesheet">
+<style>
+  :root {
+    color-scheme: dark light;
+    --font: 'DM Sans', sans-serif;
+    --bg: #0e0e0f; --bg2: #161618; --bg3: #1e1e21;
+    --border: rgba(255,255,255,0.07); --border2: rgba(255,255,255,0.12);
+    --text: #e8e6e0; --text2: #9d9b93;
+    --accent: #CC785C; --radius: 12px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg: #f4f2ee; --bg2: #ffffff; --bg3: #ebe8e2;
+      --border: rgba(0,0,0,0.06); --border2: rgba(0,0,0,0.12);
+      --text: #1a1916; --text2: #5a5752; --accent: #CC785C;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font); background: var(--bg); color: var(--text);
+    margin: 0; padding: 3rem 1rem; -webkit-font-smoothing: antialiased;
+  }
+  .card {
+    max-width: 26rem; margin: 0 auto; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem;
+  }
+  .logo { display: block; width: 48px; height: 48px; margin: 0 auto 1.25rem; border-radius: 10px; }
+  h1 { font-size: 1.25rem; font-weight: 500; text-align: center; margin: 0 0 0.5rem; }
+  p {
+    font-size: 0.9rem; color: var(--text2); text-align: center;
+    margin: 0 0 1.5rem; line-height: 1.5;
+  }
+  .error { color: #E17055; }
+  input[type="url"] {
+    display: block; width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.75rem 0.875rem; font-family: var(--font); font-size: 16px;
+    color: var(--text); outline: none;
+  }
+  input[type="url"]:focus { border-color: var(--accent); }
+  button {
+    display: block; width: 100%; margin-top: 1rem; background: var(--accent); color: #fff;
+    border: none; border-radius: 8px; padding: 0.75rem 1.25rem; font-family: var(--font);
+    font-size: 0.95rem; font-weight: 500; cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+</style>
 """
 
-_INSTANCE_FORM_PAGE = """<!doctype html>
+# Plain __TOKEN__ markers + str.replace() below, not str.format() - the CSS above is
+# full of literal { } pairs that .format() would otherwise try (and fail) to parse as
+# placeholders.
+_ERROR_PAGE = (
+    """<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Connect StudyLife</title></head>
-<body style="font-family: sans-serif; max-width: 32rem; margin: 3rem auto; padding: 0 1rem;">
-<h1>Connect your StudyLife instance</h1>
-<p>Enter the address of your own, self-hosted StudyLife instance.</p>
-{error}
-<form method="get" action="/authorize">
-{hidden_fields}
-<input type="url" name="instance_url" placeholder="https://studylife.example.com"
-  value="{prefill}" required style="width: 100%; padding: 0.5rem; font-size: 1rem;">
-<button type="submit" style="margin-top: 1rem; padding: 0.5rem 1.5rem; font-size: 1rem;">
-  Continue
-</button>
-</form>
+<head><meta charset="utf-8"><title>StudyLife</title>"""
+    + _BASE_STYLE
+    + """</head>
+<body>
+<div class="card">
+<img class="logo" src="/static/icon.png" alt="">
+<p>__MESSAGE__</p>
+</div>
 </body>
 </html>
 """
+)
+
+_INSTANCE_FORM_PAGE = (
+    """<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Connect StudyLife</title>"""
+    + _BASE_STYLE
+    + """</head>
+<body>
+<div class="card">
+<img class="logo" src="/static/icon.png" alt="">
+<h1>Connect your StudyLife instance</h1>
+<p>Enter the address of your own, self-hosted StudyLife instance.</p>
+__ERROR__
+<form method="get" action="/authorize">
+__HIDDEN_FIELDS__
+<input type="url" name="instance_url" placeholder="https://studylife.example.com"
+  value="__PREFILL__" required>
+<button type="submit">Continue</button>
+</form>
+</div>
+</body>
+</html>
+"""
+)
 
 
 def _error_page(message: str, *, status_code: int) -> HTMLResponse:
-    return HTMLResponse(
-        _ERROR_PAGE.format(title="StudyLife", message=message), status_code=status_code
-    )
+    # message is always a static literal from this module's own call sites (never
+    # user input) - see the module-level note near those call sites - so no escaping
+    # is strictly required here, but it costs nothing and matches _instance_form's
+    # own discipline below.
+    page = _ERROR_PAGE.replace("__MESSAGE__", html.escape(message))
+    return HTMLResponse(page, status_code=status_code)
 
 
 def _instance_form(params: dict[str, str], *, prefill: str = "", error: str = "") -> HTMLResponse:
@@ -93,12 +173,13 @@ def _instance_form(params: dict[str, str], *, prefill: str = "", error: str = ""
         f'<input type="hidden" name="{html.escape(name)}" value="{html.escape(value)}">'
         for name, value in params.items()
     )
-    error_html = f'<p style="color: #b00020;">{html.escape(error)}</p>' if error else ""
-    return HTMLResponse(
-        _INSTANCE_FORM_PAGE.format(
-            hidden_fields=hidden_fields, prefill=html.escape(prefill), error=error_html
-        )
+    error_html = f'<p class="error">{html.escape(error)}</p>' if error else ""
+    page = (
+        _INSTANCE_FORM_PAGE.replace("__HIDDEN_FIELDS__", hidden_fields)
+        .replace("__PREFILL__", html.escape(prefill))
+        .replace("__ERROR__", error_html)
     )
+    return HTMLResponse(page)
 
 
 async def _verify_instance_reachable(instance_url: str) -> bool:
