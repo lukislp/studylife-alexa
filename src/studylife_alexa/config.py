@@ -45,17 +45,6 @@ class Settings(BaseSettings):
     # app has exactly one redirect target, a skill has three).
     alexa_redirect_uris: str | None = None
 
-    # Multi-tenant: every user picks THEIR OWN StudyLife instance's URL during
-    # authorize() (see oauth_provider.py's instance-selection form) - there is no
-    # longer one fixed instance this server always redirects to. This setting is only
-    # a convenience default, pre-filling that form's input field so the deployer's own
-    # instance doesn't need retyping every time; every other user simply overwrites it.
-    # Kept as one field, not a connect/base_url split like earlier revisions had - both
-    # the browser (StudyLife's login/consent page) and this server's own
-    # assertion-exchange call now hit the same per-user URL the form collected, so
-    # there's nothing left to split.
-    studylife_default_instance_url: AnyHttpUrl | None = None
-
     # Fernet key (32 url-safe base64-encoded bytes, e.g. via
     # `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
     # encrypting the StudyLife API key at rest in oauth_store.py - this server needs the

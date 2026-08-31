@@ -167,8 +167,7 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
 
         instance_url = params.get("instance_url", "").strip().rstrip("/")
         if not instance_url:
-            prefill = str(settings.studylife_default_instance_url or "")
-            return _instance_form(alexa_params, prefill=prefill)
+            return _instance_form(alexa_params)
         if not instance_url.startswith("https://"):
             return _instance_form(
                 alexa_params,

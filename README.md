@@ -109,8 +109,6 @@ Setting this server up (once, by whoever deploys it) still needs:
      comma-separated
 4. Set `ALEXA_PUBLIC_URL`, `ALEXA_CLIENT_ID`, `ALEXA_CLIENT_SECRET`, `ALEXA_REDIRECT_URIS`,
    and `ALEXA_TOKEN_ENCRYPTION_KEY` (see `.env.example`).
-   `STUDYLIFE_DEFAULT_INSTANCE_URL` is optional - only pre-fills the instance-selection
-   form below, doesn't fix anyone to one instance.
 5. In the Alexa app (or the console's Test tab), linking the account opens
    `/authorize`, which asks for the user's own StudyLife instance URL, then redirects to
    THAT instance's own login/consent page - approve it, and StudyLife redirects back
