@@ -31,6 +31,13 @@ async def _fake_unreachable(instance_url: str) -> bool:
     return False
 
 
+def test_static_icon_is_served(client) -> None:
+    response = client.get("/static/icon.png")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+
+
 def test_authorize_without_instance_url_shows_instance_form(client) -> None:
     response = client.get("/authorize", params=_authorize_params(), follow_redirects=False)
 
@@ -40,6 +47,11 @@ def test_authorize_without_instance_url_shows_instance_form(client) -> None:
     # submission - dropping any of them here would break the round trip.
     assert 'name="state" value="alexa-state-123"' in response.text
     assert f'name="redirect_uri" value="{ALEXA_REDIRECT_URI}"' in response.text
+    # Regression: no viewport meta tag + a sub-16px input font-size together made iOS
+    # Safari auto-zoom on tapping the field - both must be present.
+    assert 'name="viewport" content="width=device-width, initial-scale=1"' in response.text
+    assert "font-size: 16px" in response.text
+    assert 'src="/static/icon.png"' in response.text
 
 
 def test_authorize_escapes_reflected_values_in_instance_form(client) -> None:
