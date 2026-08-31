@@ -1,3 +1,10 @@
+## [0.9.3](https://github.com/lukislp/studylife-alexa/compare/v0.9.2...v0.9.3) (2026-08-31)
+
+
+### Bug Fixes
+
+* add a dedicated AMAZON.NavigateHomeIntent handler ([a213cb7](https://github.com/lukislp/studylife-alexa/commit/a213cb797798c73f81e493870c4fa4ad7245838b))
+
 ## [0.9.2](https://github.com/lukislp/studylife-alexa/compare/v0.9.1...v0.9.2) (2026-08-31)
 
 
