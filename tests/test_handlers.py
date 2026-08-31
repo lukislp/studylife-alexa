@@ -1065,22 +1065,30 @@ async def test_program_progress_intent_fuzzy_matches_minor_asr_typo(
     assert "10 von 60 ECTS in Applied Artificial Intelligence abgeschlossen" in _speech(body)
 
 
-async def test_program_progress_intent_built_in_program_has_no_detail_endpoint(
+async def test_program_progress_intent_built_in_program_uses_metrics_summary(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Regression: found live - the built-in study program (StudyProgramSummaryDto.Id
     == null) matched by name just fine, but StudyPrograms.Get requires an int id
-    ([HttpGet("{id:int}")]), so there's no way to fetch its ECTS quotas at all. This
-    must NOT be reported as "Studiengang nicht gefunden" (it WAS found) - it needs its
-    own honest message, and must short-circuit before calling get_study_program_sync
-    (which has no id to call with)."""
+    ([HttpGet("{id:int}")]), so there's no way to fetch its ECTS quotas that way.
+    Fixed by reading MetricsSummaryDto.Ects via get_metrics_summary_sync(program=0)
+    instead, which resolves the built-in program unconditionally server-side - must
+    short-circuit before calling get_study_program_sync (which has no id to call
+    with) and must pass program=0 explicitly."""
     await _link_account("program-progress-token-builtin", "fake-api-key")
     detail_called = False
+    recorded_program: list[int] = []
 
     def _fail_detail(base_url: str, api_key: str, program_id: int) -> dict[str, object]:
         nonlocal detail_called
         detail_called = True
         return {}
+
+    def fake_get_metrics_summary_sync(
+        base_url: str, api_key: str, program: int = 0
+    ) -> dict[str, object]:
+        recorded_program.append(program)
+        return {"ects": {"earned": 15, "total": 50}}
 
     monkeypatch.setattr(
         handlers,
@@ -1090,6 +1098,7 @@ async def test_program_progress_intent_built_in_program_has_no_detail_endpoint(
         ],
     )
     monkeypatch.setattr(handlers, "get_study_program_sync", _fail_detail)
+    monkeypatch.setattr(handlers, "get_metrics_summary_sync", fake_get_metrics_summary_sync)
 
     body = _invoke(
         "ProgramProgressIntent",
@@ -1098,10 +1107,9 @@ async def test_program_progress_intent_built_in_program_has_no_detail_endpoint(
     )
 
     assert not detail_called
+    assert recorded_program == [0]
     speech = _speech(body)
-    assert "Applied Artificial Intelligence" in speech
-    assert "keine Fortschrittsdaten verfügbar" in speech
-    assert "konnte keinen Studiengang" not in speech
+    assert "15 von 50 ECTS in Applied Artificial Intelligence abgeschlossen" in speech
 
 
 async def test_program_progress_intent_success_computes_ects_progress(

@@ -31,6 +31,7 @@ from ask_sdk_model.ui import LinkAccountCard
 from studylife_alexa.client import (
     StudyLifeApiError,
     create_note_sync,
+    get_metrics_summary_sync,
     get_session_history_sync,
     get_study_program_sync,
     get_timer_state_sync,
@@ -427,24 +428,29 @@ class ProgramProgressIntentHandler(AbstractRequestHandler):
             if program is None:
                 speech = strings.program_not_found(query)
                 return _answer(handler_input, speech, strings)
+
             if program.get("id") is None:
                 # The built-in study program (StudyProgramSummaryDto.Id == null, see
                 # StudyProgramsController's own comment) has no DB row, so there's no
                 # int id to call StudyPrograms.Get with at all (that route is
-                # [HttpGet("{id:int}")]) - a real API gap, not a "not found" case, so
-                # it gets its own honest message instead of the generic one above.
+                # [HttpGet("{id:int}")]) - its ECTS progress can only be read via the
+                # Metrics API instead. program=0 resolves the built-in program
+                # unconditionally server-side (MetricsController.ResolveProgrammeAsync),
+                # regardless of which program is currently active.
                 program_name = str(program.get("name", query))
-                speech = strings.program_builtin_no_data(program_name)
-                return _answer(handler_input, speech, strings)
-
-            detail = get_study_program_sync(base_url, api_key, int(program["id"]))
-            courses = list_courses_sync(base_url, api_key)
-            goals = list_course_goals_sync(base_url, api_key)
+                summary = get_metrics_summary_sync(base_url, api_key, program=0)
+                ects = summary.get("ects") or {}
+                completed_ects = int(ects.get("earned", 0))  # type: ignore[union-attr]
+                total_ects = int(ects.get("total", 0))  # type: ignore[union-attr]
+            else:
+                detail = get_study_program_sync(base_url, api_key, int(program["id"]))
+                courses = list_courses_sync(base_url, api_key)
+                goals = list_course_goals_sync(base_url, api_key)
+                completed_ects, total_ects = _program_progress(detail, courses, goals)
+                program_name = str(detail.get("name", query))
         except StudyLifeApiError:
             return _unreachable_response(handler_input, strings)
 
-        completed_ects, total_ects = _program_progress(detail, courses, goals)
-        program_name = str(detail.get("name", query))
         if total_ects == 0:
             speech = strings.program_progress_zero(program_name)
         else:

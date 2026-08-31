@@ -20,8 +20,12 @@ the focus timer and study sessions, account-linked to your own StudyLife instanc
 - `CourseGoalsIntent` - "was sind meine Lernziele"
 - `StudyProgramsIntent` - "zeig meine Studiengänge"
 - `ProgramProgressIntent` - "wie ist mein Fortschritt im Studiengang {ProgramName}" -
-  `StudyPrograms.Get` only returns per-group ECTS quotas, not actual progress, so this
-  derives completed ECTS itself from `Courses` + `CourseGoals` (see `_program_progress`)
+  for a custom program, `StudyPrograms.Get` only returns per-group ECTS quotas, not
+  actual progress, so this derives completed ECTS itself from `Courses` + `CourseGoals`
+  (see `_program_progress`); for the built-in program (no DB row, no int id to call
+  `StudyPrograms.Get` with at all) this instead reads `Metrics.GetSummary`'s
+  `Ects.{Earned,Total}` with `program=0`, which resolves the built-in program
+  unconditionally server-side
 - `SearchNotesIntent` - "suche Notizen zu {SearchQuery}"
 - `NotesOverviewIntent` - "wie viele Notizen habe ich insgesamt"
 - `CreateNoteIntent` - "erstelle eine Notiz {NoteContent}"
@@ -74,7 +78,8 @@ uses), rather than exposing StudyLife's login to Alexa directly.
    **Client ID**: `studylife-alexa`, **Allowed redirect URIs**:
    `https://<your-public-url>/oauth/studylife/callback`. Scopes, matching the intents
    in [Status](#status) above: Read the course catalog, Read live timer state, Read
-   session history, Read course goals, Read study programs, Search notes, Create notes.
+   session history, Read course goals, Read study programs, Read metrics summary,
+   Search notes, Create notes.
 2. Generate a client ID/secret pair for Alexa itself and a token encryption key:
    ```bash
    python -c "import secrets; print(secrets.token_urlsafe(32))"  # x2, for ALEXA_CLIENT_ID/SECRET
