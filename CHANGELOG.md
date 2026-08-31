@@ -1,3 +1,10 @@
+## [0.7.1](https://github.com/lukislp/studylife-alexa/compare/v0.7.0...v0.7.1) (2026-08-31)
+
+
+### Bug Fixes
+
+* count in-progress sessions towards StudyTimeIntent's totals ([4cc3370](https://github.com/lukislp/studylife-alexa/commit/4cc33709e15fa1ddc9411716f6dd49a3b7a800e6))
+
 # [0.7.0](https://github.com/lukislp/studylife-alexa/compare/v0.6.2...v0.7.0) (2026-08-31)
 
 
