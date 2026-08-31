@@ -1,3 +1,10 @@
+## [0.7.2](https://github.com/lukislp/studylife-alexa/compare/v0.7.1...v0.7.2) (2026-08-31)
+
+
+### Bug Fixes
+
+* pin container timezone to Europe/Berlin ([a356dfa](https://github.com/lukislp/studylife-alexa/commit/a356dfa06c5f72d38f5f0cc68cc0d5b71812a682))
+
 ## [0.7.1](https://github.com/lukislp/studylife-alexa/compare/v0.7.0...v0.7.1) (2026-08-31)
 
 
