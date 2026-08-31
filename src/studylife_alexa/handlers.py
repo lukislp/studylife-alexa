@@ -544,6 +544,22 @@ class HelpIntentHandler(AbstractRequestHandler):
         return handler_input.response_builder.speak(speech).ask(speech).response
 
 
+class NavigateHomeIntentHandler(AbstractRequestHandler):
+    """AMAZON.NavigateHomeIntent is primarily meaningful for skills with a screen/APL
+    interface (this one has none) - without an explicit handler it fell through to
+    CatchAllExceptionHandler's generic "something went wrong" message instead of a
+    reply that actually makes sense for a voice-only skill with no home screen to
+    navigate to."""
+
+    def can_handle(self, handler_input: HandlerInput) -> bool:
+        return is_intent_name("AMAZON.NavigateHomeIntent")(handler_input)
+
+    def handle(self, handler_input: HandlerInput) -> Response:
+        strings = get_strings(get_locale(handler_input))
+        speech = strings.NAVIGATE_HOME
+        return handler_input.response_builder.speak(speech).ask(speech).response
+
+
 class FallbackIntentHandler(AbstractRequestHandler):
     def can_handle(self, handler_input: HandlerInput) -> bool:
         return is_intent_name("AMAZON.FallbackIntent")(handler_input)

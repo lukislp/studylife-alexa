@@ -48,6 +48,7 @@ class _Strings:
     NOTE_SAVED: str
     HELP: str
     FALLBACK: str
+    NAVIGATE_HOME: str
     GOODBYE: str
     ERROR: str
 
@@ -155,6 +156,10 @@ class DeStrings(_Strings):
         "was sind meine Lernziele, oder erstelle eine Notiz."
     )
     FALLBACK = "Das habe ich nicht verstanden. Sag zum Beispiel: wie viele Kurse habe ich."
+    NAVIGATE_HOME = (
+        "Du bist bereits bei Study Life. Frag mich einfach etwas, zum Beispiel wie viele "
+        "Kurse du hast."
+    )
     GOODBYE = "Bis bald."
     ERROR = "Entschuldigung, da ist etwas schiefgelaufen."
 
@@ -284,6 +289,9 @@ class EnStrings(_Strings):
         "what are my study goals, or create a note."
     )
     FALLBACK = "I didn't get that. Try saying: how many courses do I have."
+    NAVIGATE_HOME = (
+        "You're already at Study Life. Just ask me something, like how many courses you have."
+    )
     GOODBYE = "See you soon."
     ERROR = "Sorry, something went wrong."
 
