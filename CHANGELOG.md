@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/lukislp/studylife-alexa/compare/v0.6.2...v0.7.0) (2026-08-31)
+
+
+### Features
+
+* add en-US locale support alongside de-DE ([8dabc7b](https://github.com/lukislp/studylife-alexa/commit/8dabc7bf7f82efdc00895fbcd587bce306f0ba54))
+
 ## [0.6.2](https://github.com/lukislp/studylife-alexa/compare/v0.6.1...v0.6.2) (2026-08-30)
 
 
