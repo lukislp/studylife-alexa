@@ -6,10 +6,15 @@ from ask_sdk_model.request_envelope import RequestEnvelope
 
 from studylife_alexa import handlers
 from studylife_alexa.oauth_store import OAuthStore
+from studylife_alexa.strings import DeStrings, EnStrings
 
 
 def _intent_envelope(
-    intent_name: str, *, access_token: str | None, slots: dict[str, str] | None = None
+    intent_name: str,
+    *,
+    access_token: str | None,
+    slots: dict[str, str] | None = None,
+    locale: str = "de-DE",
 ) -> dict:
     intent: dict = {"name": intent_name, "confirmationStatus": "NONE"}
     if slots is not None:
@@ -36,19 +41,25 @@ def _intent_envelope(
             "type": "IntentRequest",
             "requestId": "amzn1.echo-api.request.test",
             "timestamp": "2026-08-30T12:00:00Z",
-            "locale": "de-DE",
+            "locale": locale,
             "intent": intent,
         },
     }
 
 
 def _invoke(
-    intent_name: str, *, access_token: str | None, slots: dict[str, str] | None = None
+    intent_name: str,
+    *,
+    access_token: str | None,
+    slots: dict[str, str] | None = None,
+    locale: str = "de-DE",
 ) -> dict:
     from studylife_alexa.main import _skill
 
     request_envelope = _skill.serializer.deserialize(
-        payload=json.dumps(_intent_envelope(intent_name, access_token=access_token, slots=slots)),
+        payload=json.dumps(
+            _intent_envelope(intent_name, access_token=access_token, slots=slots, locale=locale)
+        ),
         obj_type=RequestEnvelope,
     )
     response_envelope = _skill.invoke(request_envelope, context=None)
@@ -159,7 +170,7 @@ async def test_timer_status_intent_unreachable(monkeypatch: pytest.MonkeyPatch) 
 
     body = _invoke("TimerStatusIntent", access_token="timer-token-unreachable")
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -306,7 +317,7 @@ async def test_study_time_intent_unreachable(monkeypatch: pytest.MonkeyPatch) ->
         slots={"TimePeriod": "heute"},
     )
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +379,7 @@ async def test_recent_sessions_intent_unreachable(monkeypatch: pytest.MonkeyPatc
 
     body = _invoke("RecentSessionsIntent", access_token="recent-sessions-token-unreachable")
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -423,7 +434,7 @@ async def test_course_goals_intent_unreachable(monkeypatch: pytest.MonkeyPatch) 
 
     body = _invoke("CourseGoalsIntent", access_token="course-goals-token-unreachable")
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -472,7 +483,7 @@ async def test_study_programs_intent_unreachable(monkeypatch: pytest.MonkeyPatch
 
     body = _invoke("StudyProgramsIntent", access_token="study-programs-token-unreachable")
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -580,7 +591,7 @@ async def test_search_notes_intent_unreachable(monkeypatch: pytest.MonkeyPatch) 
         slots={"SearchQuery": "Analysis"},
     )
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -677,7 +688,7 @@ async def test_create_note_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -
         slots={"NoteContent": "Kauf Milch"},
     )
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -808,7 +819,7 @@ async def test_next_session_intent_unreachable(monkeypatch: pytest.MonkeyPatch) 
 
     body = _invoke("NextSessionIntent", access_token="next-session-token-unreachable")
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -868,7 +879,7 @@ async def test_notes_overview_intent_unreachable(monkeypatch: pytest.MonkeyPatch
 
     body = _invoke("NotesOverviewIntent", access_token="notes-overview-token-unreachable")
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
 
 
 # ---------------------------------------------------------------------------
@@ -1144,4 +1155,172 @@ async def test_program_progress_intent_unreachable(monkeypatch: pytest.MonkeyPat
         slots={"ProgramName": "Informatik"},
     )
 
-    assert handlers._STUDYLIFE_UNREACHABLE_SPEECH in _speech(body)
+    assert DeStrings.UNREACHABLE in _speech(body)
+
+
+# ---------------------------------------------------------------------------
+# en-US locale - a representative subset, not a full duplicate of every German
+# test above: strings.py's get_strings/EnStrings are exercised directly and
+# exhaustively in test_strings.py, so these just confirm the locale actually
+# reaches the handlers end-to-end (get_locale/get_strings wiring) and that a
+# couple of the trickier parameterized/pluralized cases resolve correctly.
+# ---------------------------------------------------------------------------
+
+
+def _invoke_launch_request(*, locale: str = "de-DE") -> dict:
+    from studylife_alexa.main import _skill
+
+    envelope = _intent_envelope("TestIntent", access_token=None, locale=locale)
+    envelope["request"] = {
+        "type": "LaunchRequest",
+        "requestId": "amzn1.echo-api.request.test",
+        "timestamp": "2026-08-30T12:00:00Z",
+        "locale": locale,
+    }
+    request_envelope = _skill.serializer.deserialize(
+        payload=json.dumps(envelope), obj_type=RequestEnvelope
+    )
+    response_envelope = _skill.invoke(request_envelope, context=None)
+    return _skill.serializer.serialize(response_envelope)
+
+
+def test_launch_request_en_us_welcome() -> None:
+    body = _invoke_launch_request(locale="en-US")
+
+    assert EnStrings.WELCOME in _speech(body)
+
+
+def test_test_intent_en_us() -> None:
+    body = _invoke("TestIntent", access_token=None, locale="en-US")
+
+    assert EnStrings.TEST_OK in _speech(body)
+
+
+async def test_courses_intent_en_us_plural(monkeypatch: pytest.MonkeyPatch) -> None:
+    await _link_account("en-courses-token-plural", "fake-api-key")
+    monkeypatch.setattr(
+        handlers, "list_courses_sync", lambda base_url, api_key: [{"id": 1}, {"id": 2}]
+    )
+
+    body = _invoke("CoursesIntent", access_token="en-courses-token-plural", locale="en-US")
+
+    assert "2 courses" in _speech(body)
+    assert EnStrings.FOLLOWUP_REPROMPT in _speech(body)
+
+
+async def test_courses_intent_en_us_singular_pluralization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _link_account("en-courses-token-single", "fake-api-key")
+    monkeypatch.setattr(handlers, "list_courses_sync", lambda base_url, api_key: [{"id": 1}])
+
+    body = _invoke("CoursesIntent", access_token="en-courses-token-single", locale="en-US")
+
+    assert "1 course in StudyLife." in _speech(body)
+    assert "1 courses" not in _speech(body)
+
+
+async def test_timer_status_intent_en_us_running(monkeypatch: pytest.MonkeyPatch) -> None:
+    await _link_account("en-timer-token-running", "fake-api-key")
+    monkeypatch.setattr(
+        handlers,
+        "get_timer_state_sync",
+        lambda base_url, api_key: {"isRunning": True, "isBreak": False},
+    )
+
+    body = _invoke("TimerStatusIntent", access_token="en-timer-token-running", locale="en-US")
+
+    assert EnStrings.TIMER_RUNNING in _speech(body)
+
+
+async def test_study_time_intent_en_us_last_week_excludes_this_week(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _link_account("en-study-time-token-last-week", "fake-api-key")
+
+    this_week_start = datetime.now() - timedelta(days=2)
+    this_week_end = this_week_start + timedelta(hours=1)
+    last_week_start = datetime.now() - timedelta(days=10)
+    last_week_end = last_week_start + timedelta(hours=2)
+
+    def fake_get_session_history_sync(
+        base_url: str, api_key: str, days: int | None = None
+    ) -> list[dict[str, object]]:
+        return [
+            {"startTime": this_week_start.isoformat(), "endTime": this_week_end.isoformat()},
+            {"startTime": last_week_start.isoformat(), "endTime": last_week_end.isoformat()},
+        ]
+
+    monkeypatch.setattr(handlers, "get_session_history_sync", fake_get_session_history_sync)
+
+    body = _invoke(
+        "StudyTimeIntent",
+        access_token="en-study-time-token-last-week",
+        slots={"TimePeriod": "last week"},
+        locale="en-US",
+    )
+
+    assert "You've studied 2 hours last week." in _speech(body)
+
+
+async def test_course_goals_intent_en_us_open_goals(monkeypatch: pytest.MonkeyPatch) -> None:
+    await _link_account("en-goals-token", "fake-api-key")
+    monkeypatch.setattr(
+        handlers,
+        "list_course_goals_sync",
+        lambda base_url, api_key: [
+            {"id": 1, "completedAt": None},
+            {"id": 2, "completedAt": "2026-01-01T00:00:00"},
+        ],
+    )
+
+    body = _invoke("CourseGoalsIntent", access_token="en-goals-token", locale="en-US")
+
+    assert "2 study goals" in _speech(body)
+    assert "1 of which is still open" in _speech(body)
+
+
+async def test_program_progress_intent_en_us_not_found(monkeypatch: pytest.MonkeyPatch) -> None:
+    await _link_account("en-program-not-found-token", "fake-api-key")
+    monkeypatch.setattr(
+        handlers,
+        "list_study_programs_sync",
+        lambda base_url, api_key: [{"id": 1, "name": "Physics"}],
+    )
+
+    body = _invoke(
+        "ProgramProgressIntent",
+        access_token="en-program-not-found-token",
+        slots={"ProgramName": "Chemistry"},
+        locale="en-US",
+    )
+
+    assert EnStrings.program_not_found("Chemistry") in _speech(body)
+
+
+def test_help_intent_en_us() -> None:
+    body = _invoke("AMAZON.HelpIntent", access_token=None, locale="en-US")
+
+    assert EnStrings.HELP in _speech(body)
+
+
+def test_cancel_intent_en_us_goodbye() -> None:
+    body = _invoke("AMAZON.CancelIntent", access_token=None, locale="en-US")
+
+    assert EnStrings.GOODBYE in _speech(body)
+    assert body["response"]["shouldEndSession"] is True
+
+
+async def test_timer_status_intent_en_us_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    from studylife_alexa.client import StudyLifeApiError
+
+    await _link_account("en-timer-token-unreachable", "fake-api-key")
+
+    def _raise(base_url: str, api_key: str) -> dict:
+        raise StudyLifeApiError(503, "down")
+
+    monkeypatch.setattr(handlers, "get_timer_state_sync", _raise)
+
+    body = _invoke("TimerStatusIntent", access_token="en-timer-token-unreachable", locale="en-US")
+
+    assert EnStrings.UNREACHABLE in _speech(body)

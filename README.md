@@ -12,7 +12,7 @@ the focus timer and study sessions, account-linked to your own StudyLife instanc
   publicly-grantable start/stop scope, only `Get`)
 - `StudyTimeIntent` - "wie lange habe ich {heute/diese Woche/letzte Woche/diesen
   Monat/letzten Monat} gelernt" (custom `TimePeriod` slot, 5 rolling windows - see
-  `_period_for_time_period` in `handlers.py`)
+  `period_for_time_period` in `strings.py`)
 - `RecentSessionsIntent` - "zeig meine letzten Lernsessions"
 - `NextSessionIntent` - "wann ist meine nächste Lernsession" (`/api/sessions`, unlike
   `RecentSessionsIntent`/`StudyTimeIntent` which use `/api/sessions/history` - the only
@@ -36,6 +36,19 @@ Deliberately not exposed via voice: deleting/editing notes, sessions, or course
 goals - too easy to target the wrong item without a visual confirmation step. Would
 need a real confirmation-dialog design first, not just wiring up the existing
 `Delete`/`Update` scopes.
+
+## Languages
+
+Supports `de-DE` (default/fallback for any unrecognized locale) and `en-US`. All
+handler logic (API calls, ECTS math, session-window filtering, fuzzy program-name
+matching) is shared and language-independent; every user-facing string lives in
+`strings.py`'s `DeStrings`/`EnStrings` classes, looked up per-request via
+`get_strings(get_locale(handler_input))`. Adding another language means adding one
+new `_Strings` subclass and a matching interaction model in the Alexa Developer
+Console's locale tab for that language - no handler changes needed. Each locale needs
+its own interaction model configured in the console (Build tab -> Add a new locale);
+this repo doesn't track the interaction model JSON itself, since it only ever lives in
+the console.
 
 ## Development
 
