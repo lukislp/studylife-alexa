@@ -82,6 +82,19 @@ class LinkedAccount:
     base_url: str
 
 
+# Tables that existed before the multi-tenant migration and therefore might be
+# missing studylife_instance_url on a database created by an older deployment -
+# CREATE TABLE IF NOT EXISTS above is a no-op against an already-existing table, so
+# without this an upgrade-in-place would keep the old 3-column schema and every write
+# below would fail outright ("table has N columns but N+1 values were supplied").
+_TABLES_NEEDING_INSTANCE_URL_MIGRATION = (
+    "pending_auth",
+    "auth_codes",
+    "access_tokens",
+    "refresh_tokens",
+)
+
+
 class OAuthStore:
     def __init__(self, db_path: str, encryption_key: str) -> None:
         self._db_path = db_path
@@ -90,6 +103,19 @@ class OAuthStore:
     async def initialize(self) -> None:
         async with aiosqlite.connect(self._db_path) as db:
             await db.executescript(_SCHEMA)
+            for table in _TABLES_NEEDING_INSTANCE_URL_MIGRATION:
+                cursor = await db.execute(f"PRAGMA table_info({table})")
+                columns = {row[1] for row in await cursor.fetchall()}
+                if "studylife_instance_url" not in columns:
+                    # Empty string, not a real URL - any pre-migration token used
+                    # after this runs fails at the StudyLife API call itself (an
+                    # unhandled httpx.InvalidURL, caught by handlers.py's
+                    # CatchAllExceptionHandler) rather than crashing this server, and
+                    # self-resolves the moment the user re-links their account.
+                    await db.execute(
+                        f"ALTER TABLE {table} ADD COLUMN studylife_instance_url "
+                        "TEXT NOT NULL DEFAULT ''"
+                    )
             await db.commit()
 
     # --- authorize() -> StudyLife connect flow round trip ---
