@@ -1,3 +1,10 @@
+## [0.9.4](https://github.com/lukislp/studylife-alexa/compare/v0.9.3...v0.9.4) (2026-09-03)
+
+
+### Bug Fixes
+
+* **ci:** add Dependabot for github-actions, uv, docker ([8cde911](https://github.com/lukislp/studylife-alexa/commit/8cde911662d015a2af508ffd5df4742a0cd88ff0))
+
 ## [0.9.3](https://github.com/lukislp/studylife-alexa/compare/v0.9.2...v0.9.3) (2026-08-31)
 
 
