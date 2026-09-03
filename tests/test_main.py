@@ -74,3 +74,31 @@ def test_wrong_skill_id_is_rejected() -> None:
     response = client.post("/alexa/skill", json=envelope)
 
     assert response.status_code == 403
+
+
+def test_metrics_endpoint_exposes_prometheus_text() -> None:
+    client.get("/healthz")
+
+    response = client.get("/metrics")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "studylife_alexa_request_duration_seconds" in response.text
+
+
+def test_metrics_route_label_is_a_template_not_a_raw_path() -> None:
+    client.get("/healthz")
+    client.get("/does-not-exist/12345")
+
+    body = client.get("/metrics").text
+
+    # A real route hit is labeled with its own path template, exactly - not something
+    # derived from the raw request (there's no query string/trailing content to leak
+    # here, since this app has no id-bearing routes at all, but the mechanism should
+    # still produce the plain template).
+    assert 'route="/healthz"' in body
+    # A 404 for a path that matches no route at all is labeled "unmatched" - a single
+    # fixed value, never the literal path that was actually requested (which would be
+    # unbounded cardinality for anyone able to probe this public endpoint).
+    assert 'route="unmatched"' in body
+    assert "/does-not-exist/12345" not in body

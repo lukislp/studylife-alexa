@@ -43,6 +43,7 @@ from studylife_alexa.client import (
     search_notes_sync,
 )
 from studylife_alexa.config import Settings
+from studylife_alexa.intent_tracking import record_intent_error
 from studylife_alexa.oauth_store import LinkedAccount, load_access_token_sync
 from studylife_alexa.strings import _Strings, get_strings, period_for_time_period
 
@@ -595,9 +596,16 @@ class SessionEndedRequestHandler(AbstractRequestHandler):
 
 
 class CatchAllExceptionHandler(AbstractExceptionHandler):
+    """The exception boundary for the whole skill - deliberately the one handler that
+    records its own studylife_alexa_intents_total outcome (record_intent_error), since
+    a handler that raises never reaches skill.py's global response interceptor at all
+    (RequestDispatcher.dispatch skips straight to the exception mapper - see
+    intent_tracking.py's own docstring)."""
+
     def can_handle(self, handler_input: HandlerInput, exception: Exception) -> bool:
         return True
 
     def handle(self, handler_input: HandlerInput, exception: Exception) -> Response:
+        record_intent_error(handler_input)
         strings = get_strings(get_locale(handler_input))
         return _answer(handler_input, strings.ERROR, strings)
