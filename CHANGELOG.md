@@ -1,3 +1,10 @@
+# [0.10.0](https://github.com/lukislp/studylife-alexa/compare/v0.9.4...v0.10.0) (2026-09-03)
+
+
+### Features
+
+* expose Prometheus metrics for intents and HTTP requests ([46fe556](https://github.com/lukislp/studylife-alexa/commit/46fe556d99cc65be3e5529efe013a73fc76fdd04))
+
 ## [0.9.4](https://github.com/lukislp/studylife-alexa/compare/v0.9.3...v0.9.4) (2026-09-03)
 
 
