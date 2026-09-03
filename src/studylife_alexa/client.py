@@ -10,7 +10,14 @@ from dataclasses import dataclass
 
 import httpx
 
+from studylife_alexa.metrics import track_upstream
+
 CLIENT_ID = "studylife-alexa"
+
+# Every outbound call this module makes goes to whatever StudyLife instance the caller
+# linked their account against - see metrics.py's own docstring for why this is still a
+# label rather than baked into the metric name.
+_UPSTREAM_TARGET = "studylife-api"
 
 
 class StudyLifeApiError(Exception):
@@ -37,10 +44,13 @@ async def exchange_assertion(base_url: str, assertion: str) -> ExchangedAssertio
     failed" page either way, so the specific reason only matters for logs."""
     async with httpx.AsyncClient(timeout=10.0) as http:
         try:
-            response = await http.post(
-                f"{base_url.rstrip('/')}/api/auth/assertion-exchange",
-                json={"clientId": CLIENT_ID, "assertion": assertion},
-            )
+            async with track_upstream(_UPSTREAM_TARGET) as call:
+                response = await http.post(
+                    f"{base_url.rstrip('/')}/api/auth/assertion-exchange",
+                    json={"clientId": CLIENT_ID, "assertion": assertion},
+                )
+                if response.status_code >= 400:
+                    call.outcome = "http_error"
         except httpx.HTTPError:
             return None
 
@@ -75,7 +85,10 @@ class StudyLifeClient:
         await self.aclose()
 
     async def _request(self, method: str, path: str, **kwargs: object) -> httpx.Response:
-        response = await self._http.request(method, path, **kwargs)
+        async with track_upstream(_UPSTREAM_TARGET) as call:
+            response = await self._http.request(method, path, **kwargs)
+            if response.status_code >= 400:
+                call.outcome = "http_error"
         if response.status_code >= 400:
             raise StudyLifeApiError(response.status_code, response.text)
         return response
@@ -92,12 +105,15 @@ def _sync_get(
     oauth_store.load_access_token_sync's docstring for why the skill-request path has to
     stay synchronous end to end (AsyncClient/StudyLifeClient above is for the FastAPI
     routes, which don't hit this restriction)."""
-    response = httpx.get(
-        f"{base_url.rstrip('/')}{path}",
-        headers={"X-Api-Key": api_key},
-        params=params,
-        timeout=10.0,
-    )
+    with track_upstream(_UPSTREAM_TARGET) as call:
+        response = httpx.get(
+            f"{base_url.rstrip('/')}{path}",
+            headers={"X-Api-Key": api_key},
+            params=params,
+            timeout=10.0,
+        )
+        if response.status_code >= 400:
+            call.outcome = "http_error"
     if response.status_code >= 400:
         raise StudyLifeApiError(response.status_code, response.text)
     return response
@@ -165,12 +181,15 @@ def search_notes_sync(base_url: str, api_key: str, query: str) -> list[dict[str,
 
 
 def create_note_sync(base_url: str, api_key: str, title: str, content: str) -> dict[str, object]:
-    response = httpx.post(
-        f"{base_url.rstrip('/')}/api/notes",
-        headers={"X-Api-Key": api_key},
-        json={"title": title, "content": content},
-        timeout=10.0,
-    )
+    with track_upstream(_UPSTREAM_TARGET) as call:
+        response = httpx.post(
+            f"{base_url.rstrip('/')}/api/notes",
+            headers={"X-Api-Key": api_key},
+            json={"title": title, "content": content},
+            timeout=10.0,
+        )
+        if response.status_code >= 400:
+            call.outcome = "http_error"
     if response.status_code >= 400:
         raise StudyLifeApiError(response.status_code, response.text)
     return dict(response.json())

@@ -47,7 +47,12 @@ from starlette.datastructures import FormData
 
 from studylife_alexa.client import CLIENT_ID, exchange_assertion
 from studylife_alexa.config import Settings
+from studylife_alexa.metrics import track_upstream
 from studylife_alexa.oauth_store import ACCESS_TOKEN_TTL_SECONDS, OAuthStore
+
+# Same single upstream every other outbound call in this service talks to - see
+# metrics.py's own docstring for why it's still a label, not baked into the metric name.
+_UPSTREAM_TARGET = "studylife-api"
 
 # Mirrors StudyLife's own design system (studylife/src/StudyLife.Client/wwwroot/css/
 # base.css) - same font, color tokens, and dark/light handling, so this account-linking
@@ -189,8 +194,10 @@ async def _verify_instance_reachable(instance_url: str) -> bool:
     only from a real StudyLife instance. Catches a typo'd or unreachable URL before it
     turns into a confusing redirect-to-nowhere."""
     try:
-        async with httpx.AsyncClient(timeout=5.0) as http:
+        async with httpx.AsyncClient(timeout=5.0) as http, track_upstream(_UPSTREAM_TARGET) as call:
             response = await http.get(f"{instance_url}/api/system/version")
+            if response.status_code != 200:
+                call.outcome = "http_error"
         return response.status_code == 200 and "version" in response.json()
     except (httpx.HTTPError, ValueError):
         return False

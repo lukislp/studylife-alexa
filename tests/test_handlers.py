@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import pytest
 from ask_sdk_model.request_envelope import RequestEnvelope
 
-from conftest import TEST_INSTANCE_URL
+from conftest import TEST_INSTANCE_URL, metrics_text
 from studylife_alexa import handlers
 from studylife_alexa.oauth_store import OAuthStore
 from studylife_alexa.strings import DeStrings, EnStrings
@@ -1385,3 +1385,35 @@ async def test_timer_status_intent_en_us_unreachable(monkeypatch: pytest.MonkeyP
     body = _invoke("TimerStatusIntent", access_token="en-timer-token-unreachable", locale="en-US")
 
     assert EnStrings.UNREACHABLE in _speech(body)
+
+
+def test_test_intent_records_intents_total_ok() -> None:
+    _invoke("TestIntent", access_token=None)
+
+    body = metrics_text()
+
+    assert 'intent="TestIntent"' in body
+    assert 'outcome="ok"' in body
+
+
+async def test_unhandled_exception_records_intents_total_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """CatchAllExceptionHandler is the one handler that has to record its own
+    outcome - see its own comment in handlers.py and intent_tracking.py's module
+    docstring for why: a handler that raises never reaches the global response
+    interceptor (skill.py) at all."""
+    await _link_account("timer-token-crash", "fake-api-key")
+
+    def _crash(base_url: str, api_key: str) -> dict:
+        raise ValueError("not a StudyLifeApiError - something genuinely unexpected")
+
+    monkeypatch.setattr(handlers, "get_timer_state_sync", _crash)
+
+    body = _invoke("TimerStatusIntent", access_token="timer-token-crash")
+
+    assert DeStrings.ERROR in _speech(body)
+
+    metrics_body = metrics_text()
+    assert 'intent="TimerStatusIntent"' in metrics_body
+    assert 'outcome="error"' in metrics_body

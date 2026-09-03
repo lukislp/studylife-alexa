@@ -121,6 +121,35 @@ Self-hosted (K3s + Tailscale Funnel), same pattern as
 `ALEXA_VERIFY_REQUESTS=true` (the default) in any deployed environment - it's only ever
 disabled for local testing with a hand-crafted, unsigned request body.
 
+## Metrics
+
+`GET /metrics` exposes Prometheus text-format metrics on the same port as everything
+else (8000) - unauthenticated, same as
+[studylife-mcp](https://github.com/lukislp/studylife-mcp)'s and
+[studylife-ai](https://github.com/lukislp/studylife-ai)'s own `/metrics`. Process/platform
+collectors (memory, GC, uptime) come for free from `prometheus_client`'s default registry;
+this service adds five of its own:
+
+| Metric | Type | Labels | Shows |
+|---|---|---|---|
+| `studylife_alexa_request_duration_seconds` | Histogram | `route`, `method` | HTTP latency per route |
+| `studylife_alexa_requests_total` | Counter | `route`, `method`, `status_class` | HTTP request volume and status (`2xx`/`3xx`/`4xx`/`5xx`) |
+| `studylife_alexa_upstream_requests_total` | Counter | `target`, `outcome` | Outbound-call volume to StudyLife, by outcome (`ok`/`http_error`/`failed`/`timeout`) |
+| `studylife_alexa_upstream_request_duration_seconds` | Histogram | `target` | Outbound-call latency to StudyLife |
+| `studylife_alexa_intents_total` | Counter | `intent`, `outcome` | Alexa intent/request volume and outcome (`ok`/`error`) |
+
+`route` is always the matched route's own path template (never a raw path, so a 404 probe
+can't inject unbounded label values) - unmatched paths are labeled `"unmatched"`. `target`
+is always `"studylife-api"` today - every outbound call this service makes goes to
+whatever StudyLife instance the caller linked their account against - kept as a label for
+consistency with the sibling repos' own upstream metrics. `intent` is the bounded
+intent/request name (e.g. `CoursesIntent`, `LaunchRequest`), never user utterance text or
+slot values.
+
+Scraped by the existing self-hosted Prometheus in the `homelab-infra` repo
+(`monitoring/01-prometheus.yaml`), as part of the same telemetry rollout already covering
+studylife-mcp and studylife-ai.
+
 ## Privacy & Terms
 
 [PRIVACY.md](PRIVACY.md) / [TERMS.md](TERMS.md) - the URLs the Alexa Developer Console's

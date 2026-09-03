@@ -22,11 +22,18 @@ from studylife_alexa.handlers import (
     TestIntentHandler,
     TimerStatusIntentHandler,
 )
+from studylife_alexa.intent_tracking import MetricsRequestInterceptor, MetricsResponseInterceptor
 
 
 def build_skill(settings: Settings):
     sb = SkillBuilder()
     sb.skill_id = settings.alexa_skill_id
+
+    # Records studylife_alexa_intents_total for every intent/request - see
+    # intent_tracking.py's own docstring for why the error outcome is recorded
+    # separately, in CatchAllExceptionHandler below, instead of by a third interceptor.
+    sb.add_global_request_interceptor(MetricsRequestInterceptor())
+    sb.add_global_response_interceptor(MetricsResponseInterceptor())
 
     sb.add_request_handler(LaunchRequestHandler())
     sb.add_request_handler(TestIntentHandler())

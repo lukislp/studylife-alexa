@@ -24,3 +24,14 @@ os.environ["ALEXA_OAUTH_DB_PATH"] = str(_TEST_DB_PATH)
 # linked account can carry its own distinct instance URL - this is just the
 # common-case default for tests that don't care which one).
 TEST_INSTANCE_URL = "https://studylife.example.com"
+
+
+def metrics_text() -> str:
+    """Renders the current process-global Prometheus registry as text (the same body
+    GET /metrics returns) without going through the HTTP layer - used by tests that
+    drive a handler/skill invocation directly (test_handlers.py) rather than via
+    TestClient (test_main.py, which can just call GET /metrics itself)."""
+    from studylife_alexa.metrics import render_latest
+
+    body, _ = render_latest()
+    return body.decode()
