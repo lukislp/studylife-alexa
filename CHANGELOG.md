@@ -1,3 +1,12 @@
+## [0.10.1](https://github.com/lukislp/studylife-alexa/compare/v0.10.0...v0.10.1) (2026-09-04)
+
+
+### Bug Fixes
+
+* **ci:** bump aquasecurity/trivy-action ([eeedace](https://github.com/lukislp/studylife-alexa/commit/eeedace725965248d9a650917cf3c7a283e82eb6))
+* **ci:** bump astral-sh/setup-uv from 9.0.0 to 10.0.1 ([a5b652a](https://github.com/lukislp/studylife-alexa/commit/a5b652ad3a743b97f1ae57a7b10d6b1961554b7c))
+* **ci:** bump docker/setup-buildx-action from 4.2.0 to 4.3.0 ([1ebf8a1](https://github.com/lukislp/studylife-alexa/commit/1ebf8a1f251b6a37237f1634b8213fb5f5f57025))
+
 # [0.10.0](https://github.com/lukislp/studylife-alexa/compare/v0.9.4...v0.10.0) (2026-09-03)
 
 
