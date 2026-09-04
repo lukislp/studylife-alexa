@@ -1,3 +1,10 @@
+## [0.10.2](https://github.com/lukislp/studylife-alexa/compare/v0.10.1...v0.10.2) (2026-09-04)
+
+
+### Bug Fixes
+
+* **ci:** ignore base image major bumps in Dependabot ([bb8f6bf](https://github.com/lukislp/studylife-alexa/commit/bb8f6bfee09c81bc03b60d42f9d3b0dac81568ec))
+
 ## [0.10.1](https://github.com/lukislp/studylife-alexa/compare/v0.10.0...v0.10.1) (2026-09-04)
 
 
