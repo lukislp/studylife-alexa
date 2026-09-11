@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import hmac
 import html
 import secrets
@@ -187,6 +188,14 @@ def _instance_form(params: dict[str, str], *, prefill: str = "", error: str = ""
     return HTMLResponse(page)
 
 
+def _new_pkce_pair() -> tuple[str, str]:
+    """(code_verifier, code_challenge): 43 unreserved characters and the base64url SHA-256 of
+    them without padding - the S256 shape StudyLife's connect endpoint validates."""
+    verifier = secrets.token_urlsafe(32)
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return verifier, base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
 async def _verify_instance_reachable(instance_url: str) -> bool:
     """Sanity check before ever redirecting a user's browser there - GET
     /api/system/version is PublicUnlessInvalidSession (StudyLife's own
@@ -275,15 +284,27 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
         # than round-tripped through StudyLife directly, so it can't be tampered with by
         # anything in between.
         request_id = secrets.token_urlsafe(24)
+        # PKCE (RFC 7636) towards StudyLife: the assertion travels back through the user's
+        # browser, and StudyLife only redeems it together with the verifier matching this
+        # challenge - the verifier never leaves this server (stashed with the pending row).
+        code_verifier, code_challenge = _new_pkce_pair()
         await store.save_pending_authorization(
             request_id,
             alexa_state=alexa_params["state"],
             alexa_redirect_uri=redirect_uri,
             studylife_instance_url=instance_url,
+            pkce_verifier=code_verifier,
         )
 
         callback_url = f"{str(settings.alexa_public_url).rstrip('/')}/oauth/studylife/callback"
-        query = urlencode({"redirect_uri": callback_url, "state": request_id})
+        query = urlencode(
+            {
+                "redirect_uri": callback_url,
+                "state": request_id,
+                "code_challenge": code_challenge,
+                "code_challenge_method": "S256",
+            }
+        )
         connect_url = f"{instance_url}/connect/client/{CLIENT_ID}?{query}"
         return RedirectResponse(connect_url, status_code=302)
 
@@ -305,7 +326,9 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
                 status_code=400,
             )
 
-        exchanged = await exchange_assertion(pending.studylife_instance_url, assertion)
+        exchanged = await exchange_assertion(
+            pending.studylife_instance_url, assertion, pending.pkce_verifier
+        )
         if exchanged is None:
             return _error_page(
                 "StudyLife could not confirm this connection. Please try again.",

@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS pending_auth (
     alexa_state TEXT NOT NULL,
     alexa_redirect_uri TEXT NOT NULL,
     studylife_instance_url TEXT NOT NULL,
+    pkce_verifier TEXT NOT NULL DEFAULT '',
     created_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS auth_codes (
@@ -70,6 +71,9 @@ class PendingAuthorization:
     alexa_state: str
     alexa_redirect_uri: str
     studylife_instance_url: str
+    # PKCE code_verifier for the StudyLife connect round trip - generated in authorize(),
+    # stashed here (never sent through the browser) and presented at assertion-exchange.
+    pkce_verifier: str
 
 
 @dataclass(frozen=True)
@@ -116,6 +120,14 @@ class OAuthStore:
                         f"ALTER TABLE {table} ADD COLUMN studylife_instance_url "
                         "TEXT NOT NULL DEFAULT ''"
                     )
+            # PKCE (2026-09-11): same in-place upgrade shape for the verifier column. A pending
+            # authorization from before the upgrade simply carries '' and fails the exchange,
+            # which the user resolves by restarting the link from the Alexa app.
+            cursor = await db.execute("PRAGMA table_info(pending_auth)")
+            if "pkce_verifier" not in {row[1] for row in await cursor.fetchall()}:
+                await db.execute(
+                    "ALTER TABLE pending_auth ADD COLUMN pkce_verifier TEXT NOT NULL DEFAULT ''"
+                )
             await db.commit()
 
     # --- authorize() -> StudyLife connect flow round trip ---
@@ -127,21 +139,29 @@ class OAuthStore:
         alexa_state: str,
         alexa_redirect_uri: str,
         studylife_instance_url: str,
+        pkce_verifier: str,
     ) -> None:
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO pending_auth "
-                "(request_id, alexa_state, alexa_redirect_uri, studylife_instance_url, created_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (request_id, alexa_state, alexa_redirect_uri, studylife_instance_url, time.time()),
+                "(request_id, alexa_state, alexa_redirect_uri, studylife_instance_url, "
+                "pkce_verifier, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    request_id,
+                    alexa_state,
+                    alexa_redirect_uri,
+                    studylife_instance_url,
+                    pkce_verifier,
+                    time.time(),
+                ),
             )
             await db.commit()
 
     async def consume_pending_authorization(self, request_id: str) -> PendingAuthorization | None:
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT alexa_state, alexa_redirect_uri, studylife_instance_url, created_at "
-                "FROM pending_auth WHERE request_id = ?",
+                "SELECT alexa_state, alexa_redirect_uri, studylife_instance_url, pkce_verifier, "
+                "created_at FROM pending_auth WHERE request_id = ?",
                 (request_id,),
             )
             row = await cursor.fetchone()
@@ -150,13 +170,14 @@ class OAuthStore:
 
         if row is None:
             return None
-        alexa_state, alexa_redirect_uri, studylife_instance_url, created_at = row
+        alexa_state, alexa_redirect_uri, studylife_instance_url, pkce_verifier, created_at = row
         if created_at + PENDING_AUTH_TTL_SECONDS < time.time():
             return None
         return PendingAuthorization(
             alexa_state=alexa_state,
             alexa_redirect_uri=alexa_redirect_uri,
             studylife_instance_url=studylife_instance_url,
+            pkce_verifier=pkce_verifier,
         )
 
     # --- authorization code -> token exchange ---

@@ -35,7 +35,9 @@ class ExchangedAssertion:
     api_key: str
 
 
-async def exchange_assertion(base_url: str, assertion: str) -> ExchangedAssertion | None:
+async def exchange_assertion(
+    base_url: str, assertion: str, code_verifier: str
+) -> ExchangedAssertion | None:
     """Server-to-server exchange of the single-use assertion authorize()'s callback
     received for the real StudyLife user id and a freshly issued, per-installation API
     key (generic flow - AuthController.10.OAuthClients.cs). No X-Api-Key sent: this
@@ -47,7 +49,11 @@ async def exchange_assertion(base_url: str, assertion: str) -> ExchangedAssertio
             async with track_upstream(_UPSTREAM_TARGET) as call:
                 response = await http.post(
                     f"{base_url.rstrip('/')}/api/auth/assertion-exchange",
-                    json={"clientId": CLIENT_ID, "assertion": assertion},
+                    json={
+                        "clientId": CLIENT_ID,
+                        "assertion": assertion,
+                        "codeVerifier": code_verifier,
+                    },
                 )
                 if response.status_code >= 400:
                     call.outcome = "http_error"
