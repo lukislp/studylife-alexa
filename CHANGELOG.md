@@ -1,3 +1,10 @@
+## [0.11.1](https://github.com/lukislp/studylife-alexa/compare/v0.11.0...v0.11.1) (2026-09-11)
+
+
+### Bug Fixes
+
+* **ci:** read-only GITHUB_TOKEN in the Dependabot auto-merge workflow ([9b141d6](https://github.com/lukislp/studylife-alexa/commit/9b141d6268fc9abbfb7852f6bbc54c0d05fb87f0))
+
 # [0.11.0](https://github.com/lukislp/studylife-alexa/compare/v0.10.3...v0.11.0) (2026-09-11)
 
 
