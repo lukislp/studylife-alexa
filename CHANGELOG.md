@@ -1,3 +1,10 @@
+# [0.11.0](https://github.com/lukislp/studylife-alexa/compare/v0.10.3...v0.11.0) (2026-09-11)
+
+
+### Features
+
+* **oauth:** PKCE for the StudyLife account-linking round trip ([7341ac4](https://github.com/lukislp/studylife-alexa/commit/7341ac49cbe2dffce971a8cad716f5883daa3990))
+
 ## [0.10.3](https://github.com/lukislp/studylife-alexa/compare/v0.10.2...v0.10.3) (2026-09-11)
 
 
