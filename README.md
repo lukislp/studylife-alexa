@@ -1,5 +1,7 @@
 # studylife-alexa
 
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/lukislp/studylife-alexa/badge)](https://scorecard.dev/viewer/?uri=github.com/lukislp/studylife-alexa) [![CodeQL](https://github.com/lukislp/studylife-alexa/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/lukislp/studylife-alexa/security/code-scanning)
+
 Alexa Skill backend for [StudyLife](https://github.com/lukislp/studylife): voice control for
 the focus timer and study sessions, account-linked to your own StudyLife instance.
 
