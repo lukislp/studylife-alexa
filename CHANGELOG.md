@@ -1,3 +1,10 @@
+## [0.10.3](https://github.com/lukislp/studylife-alexa/compare/v0.10.2...v0.10.3) (2026-09-11)
+
+
+### Bug Fixes
+
+* **ci:** push release commits as a deploy key so the default branch can be ruleset-protected ([e1e1a62](https://github.com/lukislp/studylife-alexa/commit/e1e1a62e642057a217d57c24685d300cf4a42775))
+
 ## [0.10.2](https://github.com/lukislp/studylife-alexa/compare/v0.10.1...v0.10.2) (2026-09-04)
 
 
