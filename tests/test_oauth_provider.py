@@ -112,6 +112,10 @@ def test_authorize_redirects_to_studylife_connect(client, monkeypatch: pytest.Mo
     query = parse_qs(location.query)
     assert query["redirect_uri"] == ["https://studylife-alexa.example.com/oauth/studylife/callback"]
     assert "state" in query
+    # PKCE towards StudyLife: a fresh S256 challenge per authorization, verifier never in the URL.
+    assert query["code_challenge_method"] == ["S256"]
+    assert len(query["code_challenge"][0]) == 43
+    assert "code_verifier" not in query
 
 
 def test_authorize_rejects_wrong_client_id(client) -> None:
@@ -226,9 +230,14 @@ def test_token_rejects_wrong_client_secret(client, monkeypatch: pytest.MonkeyPat
     assert response.status_code == 401
 
 
-async def _fake_exchange_assertion(base_url: str, assertion: str) -> ExchangedAssertion | None:
+async def _fake_exchange_assertion(
+    base_url: str, assertion: str, code_verifier: str
+) -> ExchangedAssertion | None:
     assert base_url == CHOSEN_INSTANCE_URL
     assert assertion == "fake-assertion"
+    assert (
+        len(code_verifier) == 43
+    )  # the verifier stashed at authorize() time, never sent via the browser
     return ExchangedAssertion(user_id=1, api_key="fake-studylife-api-key")
 
 
