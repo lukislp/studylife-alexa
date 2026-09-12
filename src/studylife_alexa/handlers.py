@@ -161,6 +161,26 @@ class TimerStatusIntentHandler(AbstractRequestHandler):
         return _answer(handler_input, speech, strings)
 
 
+def _parse_local(value: object) -> datetime | None:
+    """A session timestamp as a naive local datetime, or None if it is not one.
+
+    The StudyLife API sends naive local timestamps, but an offset-aware one ("...Z",
+    "...+02:00") is valid ISO 8601 too and used to raise TypeError in every comparison
+    against datetime.now() - i.e. crash the whole intent (found by fuzz/fuzz_handlers.py).
+    Aware values are converted to local time and stripped, so both shapes compare alike."""
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone().replace(tzinfo=None)
+    except (ValueError, OverflowError):
+        # OverflowError: an aware value at the edge of the datetime range ("0001-01-01T00:00Z"
+        # in a zone west of UTC) cannot be shifted into local time.
+        return None
+    return parsed
+
+
 def _filter_sessions_by_window(
     sessions: list[dict[str, object]], start_days_ago: int, end_days_ago: int
 ) -> list[dict[str, object]]:
@@ -170,12 +190,8 @@ def _filter_sessions_by_window(
 
     filtered = []
     for session in sessions:
-        start = session.get("startTime")
-        if not isinstance(start, str):
-            continue
-        try:
-            start_dt = datetime.fromisoformat(start)
-        except ValueError:
+        start_dt = _parse_local(session.get("startTime"))
+        if start_dt is None:
             continue
         if window_start <= start_dt <= window_end:
             filtered.append(session)
@@ -193,14 +209,11 @@ def _sum_session_minutes(sessions: list[dict[str, object]]) -> int:
     now = datetime.now()
     total_seconds = 0.0
     for session in sessions:
-        start, end = session.get("startTime"), session.get("endTime")
-        if not isinstance(start, str) or not isinstance(end, str):
+        start_dt = _parse_local(session.get("startTime"))
+        end_dt = _parse_local(session.get("endTime"))
+        if start_dt is None or end_dt is None:
             continue
-        try:
-            start_dt = datetime.fromisoformat(start)
-            end_dt = min(datetime.fromisoformat(end), now)
-        except ValueError:
-            continue
+        end_dt = min(end_dt, now)
         total_seconds += max(0.0, (end_dt - start_dt).total_seconds())
     return int(total_seconds // 60)
 
@@ -267,12 +280,8 @@ def _next_upcoming_session(
     now = datetime.now()
     upcoming: list[tuple[datetime, str | None]] = []
     for session in sessions:
-        start = session.get("startTime")
-        if not isinstance(start, str):
-            continue
-        try:
-            start_dt = datetime.fromisoformat(start)
-        except ValueError:
+        start_dt = _parse_local(session.get("startTime"))
+        if start_dt is None:
             continue
         if start_dt > now:
             course_name = session.get("courseName")
