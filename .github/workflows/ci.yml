@@ -69,6 +69,10 @@ jobs:
       - run: uv python install 3.12
       - run: uv sync --frozen --group fuzz
       - run: uv run python fuzz/fuzz_handlers.py -max_total_time=30 -rss_limit_mb=1024
+        env:
+          # ask-sdk ships regexes with invalid escape sequences; the harness imports it outside
+          # pytest, so the pyproject filter does not apply here.
+          PYTHONWARNINGS: "ignore:invalid escape sequence:SyntaxWarning"
 
   get-version:
     needs: [lint, test]
