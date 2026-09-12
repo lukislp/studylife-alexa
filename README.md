@@ -1,6 +1,9 @@
 # studylife-alexa
 
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/lukislp/studylife-alexa/badge)](https://scorecard.dev/viewer/?uri=github.com/lukislp/studylife-alexa) [![CodeQL](https://github.com/lukislp/studylife-alexa/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/lukislp/studylife-alexa/security/code-scanning)
+[![CI](https://github.com/lukislp/studylife-alexa/actions/workflows/ci.yml/badge.svg)](https://github.com/lukislp/studylife-alexa/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/lukislp/studylife-alexa/badge)](https://scorecard.dev/viewer/?uri=github.com/lukislp/studylife-alexa) [![CodeQL](https://github.com/lukislp/studylife-alexa/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/lukislp/studylife-alexa/security/code-scanning)
+[![Release](https://img.shields.io/github/v/release/lukislp/studylife-alexa)](https://github.com/lukislp/studylife-alexa/releases)
+[![License: AGPL-3.0](https://img.shields.io/github/license/lukislp/studylife-alexa)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB)](https://www.python.org/)
 
 Alexa Skill backend for [StudyLife](https://github.com/lukislp/studylife): voice control for
 the focus timer and study sessions, account-linked to your own StudyLife instance.
