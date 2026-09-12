@@ -1,3 +1,10 @@
+## [0.11.2](https://github.com/lukislp/studylife-alexa/compare/v0.11.1...v0.11.2) (2026-09-12)
+
+
+### Bug Fixes
+
+* **ci:** bump the deployment image tag from the pipeline instead of Flux ([#41](https://github.com/lukislp/studylife-alexa/issues/41)) ([329d1e5](https://github.com/lukislp/studylife-alexa/commit/329d1e5d7c34325e4feb237409e27f6ebbcf0ff4))
+
 ## [0.11.1](https://github.com/lukislp/studylife-alexa/compare/v0.11.0...v0.11.1) (2026-09-11)
 
 
