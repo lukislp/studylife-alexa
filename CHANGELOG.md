@@ -1,3 +1,10 @@
+## [0.11.3](https://github.com/lukislp/studylife-alexa/compare/v0.11.2...v0.11.3) (2026-09-12)
+
+
+### Bug Fixes
+
+* **deps:** bump ruff from 0.16.5 to 0.16.6 ([c189beb](https://github.com/lukislp/studylife-alexa/commit/c189beb606e007d3fd732f4cd34743d11dbb8d39))
+
 ## [0.11.2](https://github.com/lukislp/studylife-alexa/compare/v0.11.1...v0.11.2) (2026-09-12)
 
 
