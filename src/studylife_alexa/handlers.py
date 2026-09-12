@@ -21,7 +21,7 @@ from ask_sdk_core.handler_input import HandlerInput
 from ask_sdk_core.utils import (
     get_account_linking_access_token,
     get_locale,
-    get_slot_value,
+    get_slot,
     is_intent_name,
     is_request_type,
 )
@@ -46,6 +46,13 @@ from studylife_alexa.config import Settings
 from studylife_alexa.intent_tracking import record_intent_error
 from studylife_alexa.oauth_store import LinkedAccount, load_access_token_sync
 from studylife_alexa.strings import _Strings, get_strings, period_for_time_period
+
+
+def _slot_value(handler_input: HandlerInput, slot_name: str) -> str | None:
+    """The spoken value of a slot, or None - ask-sdk's get_slot_value() is deprecated in favour
+    of reading the Slot object (get_slot) yourself."""
+    slot = get_slot(handler_input, slot_name)
+    return slot.value if slot is not None else None
 
 
 def _resolve_linked_account(
@@ -230,7 +237,7 @@ class StudyTimeIntentHandler(AbstractRequestHandler):
         linked = resolved
 
         fetch_days, start_days_ago, end_days_ago, label = period_for_time_period(
-            strings, get_slot_value(handler_input, "TimePeriod")
+            strings, _slot_value(handler_input, "TimePeriod")
         )
         try:
             sessions = get_session_history_sync(
@@ -428,7 +435,7 @@ class ProgramProgressIntentHandler(AbstractRequestHandler):
             return resolved
         linked = resolved
 
-        query = get_slot_value(handler_input, "ProgramName") or ""
+        query = _slot_value(handler_input, "ProgramName") or ""
         if not query.strip():
             speech = strings.PROGRAM_PROGRESS_ASK
             return handler_input.response_builder.speak(speech).ask(speech).response
@@ -481,7 +488,7 @@ class SearchNotesIntentHandler(AbstractRequestHandler):
             return resolved
         linked = resolved
 
-        query = get_slot_value(handler_input, "SearchQuery") or ""
+        query = _slot_value(handler_input, "SearchQuery") or ""
         if not query.strip():
             speech = strings.SEARCH_NOTES_ASK
             return handler_input.response_builder.speak(speech).ask(speech).response
@@ -530,7 +537,7 @@ class CreateNoteIntentHandler(AbstractRequestHandler):
             return resolved
         linked = resolved
 
-        content = get_slot_value(handler_input, "NoteContent") or ""
+        content = _slot_value(handler_input, "NoteContent") or ""
         if not content.strip():
             speech = strings.CREATE_NOTE_ASK
             return handler_input.response_builder.speak(speech).ask(speech).response

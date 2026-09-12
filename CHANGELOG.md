@@ -1,3 +1,10 @@
+## [0.11.5](https://github.com/lukislp/studylife-alexa/compare/v0.11.4...v0.11.5) (2026-09-12)
+
+
+### Bug Fixes
+
+* **handlers:** read slot values via get_slot instead of the deprecated get_slot_value ([#52](https://github.com/lukislp/studylife-alexa/issues/52)) ([ad27d94](https://github.com/lukislp/studylife-alexa/commit/ad27d944cc223d4fc55024ba3b3777bc985cb38d))
+
 ## [0.11.4](https://github.com/lukislp/studylife-alexa/compare/v0.11.3...v0.11.4) (2026-09-12)
 
 
