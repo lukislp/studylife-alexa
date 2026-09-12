@@ -38,8 +38,7 @@ asyncio_mode = "auto"
 # ask-sdk-model/ask-sdk-core ship regexes with invalid escape sequences; the SyntaxWarning is
 # raised when their sources are byte-compiled - third-party, not fixable here.
 filterwarnings = [
-    "ignore::SyntaxWarning:ask_sdk_model",
-    "ignore::SyntaxWarning:ask_sdk_core",
+    "ignore:invalid escape sequence:SyntaxWarning",
 ]
 
 [build-system]
