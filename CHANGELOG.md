@@ -1,3 +1,10 @@
+## [0.11.4](https://github.com/lukislp/studylife-alexa/compare/v0.11.3...v0.11.4) (2026-09-12)
+
+
+### Bug Fixes
+
+* **handlers:** tolerate offset-aware session timestamps in the intent helpers ([#50](https://github.com/lukislp/studylife-alexa/issues/50)) ([f0ee05d](https://github.com/lukislp/studylife-alexa/commit/f0ee05d3cd080e96390de135585a643b6d73fcc9))
+
 ## [0.11.3](https://github.com/lukislp/studylife-alexa/compare/v0.11.2...v0.11.3) (2026-09-12)
 
 
