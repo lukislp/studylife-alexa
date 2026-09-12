@@ -33,3 +33,8 @@ htmlcov/
 .vscode/
 .idea/
 .DS_Store
+
+# libFuzzer crash artifacts written by fuzz/ harnesses
+crash-*
+leak-*
+timeout-*

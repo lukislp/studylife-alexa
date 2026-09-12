@@ -20,6 +20,10 @@ dependencies = [
 ]
 
 [dependency-groups]
+# Fuzzing harness (fuzz/), Linux only - the atheris wheel does not exist for Windows.
+fuzz = [
+    "atheris>=2.3",
+]
 dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
