@@ -72,3 +72,43 @@ spec:
 # endpoint. If a later phase adds one (e.g. a self-service page), add an HTTPRoute + matching
 # allow-nginx-gateway-to-studylife-alexa rule following studylife-mcp's k8s/06-httproute.yaml
 # and k8s/05-network-policies.yaml pattern.
+---
+# Egress for the skill pod. Two outbound dependencies:
+#
+#  1. Plain HTTPS to the public internet, for two separate reasons:
+#     - Request signature verification (ALEXA_VERIFY_REQUESTS=true, k8s/01-config.yaml)
+#       fetches Amazon's signing certificate chain from its published HTTPS URL on every
+#       cold signature check.
+#     - Account linking and every intent afterwards talk to whichever StudyLife instance the
+#       user linked (oauth_provider._verify_instance_reachable, client.exchange_assertion and
+#       the read-only *_sync calls). That URL is user-supplied and only constrained to start
+#       with https:// - it is data, not a fixed host, so an IP allowlist is impossible here.
+#     Both are therefore a 0.0.0.0/0:443 allowance, the same trade-off claude-queue's
+#     api-egress makes. Note this means a self-hosted instance published on a non-standard
+#     HTTPS port (e.g. :8443) would not be reachable - that is the one deliberate narrowing.
+#  2. The studylife-web pods in studylife-scale, for the case where the linked instance is
+#     this cluster's own StudyLife. NetworkPolicy matches the POD port, not the Service port:
+#     the studylife-web Service maps 443 -> 8443 and 80 -> 8080.
+#
+# DNS is covered by allow-dns above; kubelet probes are not subject to NetworkPolicy at all
+# (they originate from the node, not from a pod). Nothing here needs the Kubernetes API, a
+# database server (state is a local SQLite file on the PVC) or any other namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: studylife-alexa-egress
+  namespace: studylife-alexa
+spec:
+  podSelector: { matchLabels: { app: studylife-alexa } }
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - ipBlock: { cidr: 0.0.0.0/0 }
+      ports:
+        - { protocol: TCP, port: 443 }
+    - to:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: studylife-scale } }
+          podSelector: { matchLabels: { app: studylife-web } }
+      ports:
+        - { protocol: TCP, port: 8080 }
+        - { protocol: TCP, port: 8443 }
