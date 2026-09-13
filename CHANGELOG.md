@@ -1,3 +1,10 @@
+## [0.11.12](https://github.com/lukislp/studylife-alexa/compare/v0.11.11...v0.11.12) (2026-09-13)
+
+
+### Bug Fixes
+
+* **k8s:** seal studylife-alexa-secrets so it survives a cluster rebuild ([#67](https://github.com/lukislp/studylife-alexa/issues/67)) ([885a984](https://github.com/lukislp/studylife-alexa/commit/885a9846d47050719ae054c50ca1f77b0a367b33))
+
 ## [0.11.11](https://github.com/lukislp/studylife-alexa/compare/v0.11.10...v0.11.11) (2026-09-13)
 
 
