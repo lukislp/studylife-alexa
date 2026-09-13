@@ -56,6 +56,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: ["ALL"]}
+            # oauth.db on the PVC below is the only thing this service persists; the image
+            # layer is never written to. /tmp still has to be writable - that is where
+            # Python's tempfile module and the outbound HTTP client put scratch files.
+            readOnlyRootFilesystem: true
           envFrom:
             - configMapRef: {name: studylife-alexa-config}
             - secretRef: {name: studylife-alexa-secrets}
@@ -75,9 +79,13 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: data
           persistentVolumeClaim: {claimName: studylife-alexa-data}
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
 ---
 apiVersion: v1
 kind: Service
