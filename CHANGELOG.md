@@ -1,3 +1,10 @@
+## [0.11.7](https://github.com/lukislp/studylife-alexa/compare/v0.11.6...v0.11.7) (2026-09-13)
+
+
+### Bug Fixes
+
+* **docker:** apply Debian security updates at build time ([#62](https://github.com/lukislp/studylife-alexa/issues/62)) ([9431eb4](https://github.com/lukislp/studylife-alexa/commit/9431eb478136edd9be5f2458eff96d6d926d2e44))
+
 ## [0.11.6](https://github.com/lukislp/studylife-alexa/compare/v0.11.5...v0.11.6) (2026-09-13)
 
 
