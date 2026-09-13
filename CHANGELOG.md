@@ -1,3 +1,10 @@
+## [0.11.11](https://github.com/lukislp/studylife-alexa/compare/v0.11.10...v0.11.11) (2026-09-13)
+
+
+### Bug Fixes
+
+* **k8s:** give probes a 5s timeout so load spikes stop killing pods ([#66](https://github.com/lukislp/studylife-alexa/issues/66)) ([f986ace](https://github.com/lukislp/studylife-alexa/commit/f986ace55f494420b309e1e6a6dde0dc57747221))
+
 ## [0.11.10](https://github.com/lukislp/studylife-alexa/compare/v0.11.9...v0.11.10) (2026-09-13)
 
 
