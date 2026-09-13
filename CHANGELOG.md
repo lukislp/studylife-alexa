@@ -1,3 +1,10 @@
+## [0.11.9](https://github.com/lukislp/studylife-alexa/compare/v0.11.8...v0.11.9) (2026-09-13)
+
+
+### Bug Fixes
+
+* **k8s:** read-only root filesystem for studylife-alexa ([#64](https://github.com/lukislp/studylife-alexa/issues/64)) ([7c9702e](https://github.com/lukislp/studylife-alexa/commit/7c9702e4dc2a9c657e0e1513ab13e3e8e3579d7a))
+
 ## [0.11.8](https://github.com/lukislp/studylife-alexa/compare/v0.11.7...v0.11.8) (2026-09-13)
 
 
