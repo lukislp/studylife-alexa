@@ -1,3 +1,10 @@
+## [0.11.10](https://github.com/lukislp/studylife-alexa/compare/v0.11.9...v0.11.10) (2026-09-13)
+
+
+### Bug Fixes
+
+* **k8s:** close the open egress hole in this namespace ([#65](https://github.com/lukislp/studylife-alexa/issues/65)) ([3446d05](https://github.com/lukislp/studylife-alexa/commit/3446d051d07693e078c1dda3509fb573e253b621))
+
 ## [0.11.9](https://github.com/lukislp/studylife-alexa/compare/v0.11.8...v0.11.9) (2026-09-13)
 
 
