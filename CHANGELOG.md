@@ -1,3 +1,10 @@
+## [0.11.6](https://github.com/lukislp/studylife-alexa/compare/v0.11.5...v0.11.6) (2026-09-13)
+
+
+### Bug Fixes
+
+* **k8s:** raise the studylife-alexa namespace from PSS baseline to restricted ([#61](https://github.com/lukislp/studylife-alexa/issues/61)) ([631b476](https://github.com/lukislp/studylife-alexa/commit/631b4766523a7df8078b96b63766169d621624fe))
+
 ## [0.11.5](https://github.com/lukislp/studylife-alexa/compare/v0.11.4...v0.11.5) (2026-09-12)
 
 
