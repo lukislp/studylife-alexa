@@ -1,8 +1,9 @@
-# Default-deny ingress baseline; egress stays open (Phase A/B has no outbound calls yet,
-# but a later account-linking phase will need to reach StudyLife - same open-egress
-# strategy as every other StudyLife add-on's own network-policies file). Bootstrap-only,
-# NOT Flux-managed - kustomize-controller's ClusterRole (studylife repo's
-# k8s/flux/06-reconciler-rbac.yaml) has no "networkpolicies" permission.
+# Default-deny in BOTH directions as the baseline (default-deny-ingress and
+# default-deny-egress), with every allowed flow spelled out as its own policy: cluster DNS in
+# allow-dns, the skill pod's outbound calls in studylife-alexa-egress, and the two inbound
+# paths (Tailscale funnel, Prometheus) below. Bootstrap-only, NOT Flux-managed -
+# kustomize-controller's ClusterRole (studylife repo's k8s/flux/06-reconciler-rbac.yaml) has
+# no "networkpolicies" permission.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -26,7 +27,6 @@ spec:
       ports:
         - { protocol: UDP, port: 53 }
         - { protocol: TCP, port: 53 }
-    - {} # egress otherwise unrestricted - this policy only adds an explicit DNS allowance
 ---
 # Lets the Tailscale operator's ingress proxy (k8s/05-tailscale-funnel.yaml, a single-replica
 # StatefulSet the operator creates in its own "tailscale" namespace, not this one) reach the
@@ -112,3 +112,18 @@ spec:
       ports:
         - { protocol: TCP, port: 8080 }
         - { protocol: TCP, port: 8443 }
+---
+# Egress counterpart of the ingress baseline above: a pod in this namespace gets no outbound
+# access at all beyond what an explicit policy grants it (allow-dns for cluster DNS, plus the
+# per-app egress policy in this file). Until 2026-09-13 allow-dns carried a bare "- {}" rule
+# next to its DNS rule, which allowed egress to anywhere - the internet, every other namespace
+# and the node network - making the policy a no-op in practice. This baseline replaces it, so
+# a pod added here later is denied by default instead of inheriting that hole.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: studylife-alexa
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
