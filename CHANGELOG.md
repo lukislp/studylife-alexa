@@ -1,3 +1,10 @@
+## [0.11.15](https://github.com/lukislp/studylife-alexa/compare/v0.11.14...v0.11.15) (2026-09-17)
+
+
+### Bug Fixes
+
+* **docker:** bump astral-sh/uv from 0.12.13 to 0.12.15 ([c911591](https://github.com/lukislp/studylife-alexa/commit/c911591eda72a42f7e6ed19dc47335015184b6af))
+
 ## [0.11.14](https://github.com/lukislp/studylife-alexa/compare/v0.11.13...v0.11.14) (2026-09-17)
 
 
