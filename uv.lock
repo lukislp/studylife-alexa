@@ -910,7 +910,7 @@ wheels = [
 
 [[package]]
 name = "studylife-alexa"
-version = "0.11.5.dev2+g0d1b6ddf9.d20260912"
+version = "0.11.13.dev17+g2b59970dc.d20260917"
 source = { editable = "." }
 dependencies = [
     { name = "aiosqlite" },
