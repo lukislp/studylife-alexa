@@ -1,3 +1,10 @@
+## [0.11.14](https://github.com/lukislp/studylife-alexa/compare/v0.11.13...v0.11.14) (2026-09-17)
+
+
+### Bug Fixes
+
+* **ci:** bump astral-sh/setup-uv from 10.0.1 to 10.1.0 ([931be86](https://github.com/lukislp/studylife-alexa/commit/931be86e890abef6f28e68afbdd01107eae1426c))
+
 ## [0.11.13](https://github.com/lukislp/studylife-alexa/compare/v0.11.12...v0.11.13) (2026-09-17)
 
 
