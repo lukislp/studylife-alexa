@@ -1,3 +1,10 @@
+## [0.11.17](https://github.com/lukislp/studylife-alexa/compare/v0.11.16...v0.11.17) (2026-09-20)
+
+
+### Bug Fixes
+
+* **ci:** correct missing Harden Runner allowlist ports (github.com:22, crl:80) ([#85](https://github.com/lukislp/studylife-alexa/issues/85)) ([8c0edb4](https://github.com/lukislp/studylife-alexa/commit/8c0edb4d203c0e0a23f5a6511993fae811d19333))
+
 ## [0.11.16](https://github.com/lukislp/studylife-alexa/compare/v0.11.15...v0.11.16) (2026-09-20)
 
 
