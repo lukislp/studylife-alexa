@@ -1,3 +1,10 @@
+## [0.11.16](https://github.com/lukislp/studylife-alexa/compare/v0.11.15...v0.11.16) (2026-09-20)
+
+
+### Bug Fixes
+
+* **ci:** add Harden Runner in audit mode to every job ([#83](https://github.com/lukislp/studylife-alexa/issues/83)) ([2517747](https://github.com/lukislp/studylife-alexa/commit/2517747dc79845b56830d48517121dbe91fa074f))
+
 ## [0.11.15](https://github.com/lukislp/studylife-alexa/compare/v0.11.14...v0.11.15) (2026-09-17)
 
 
