@@ -52,7 +52,7 @@ spec:
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: studylife-alexa
-          image: ghcr.io/lukislp/studylife-alexa:0.11.21 # set by the deploy-bump job (CI) on every release
+          image: ghcr.io/lukislp/studylife-alexa:0.11.22 # set by the deploy-bump job (CI) on every release
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: ["ALL"]}
