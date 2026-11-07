@@ -80,7 +80,7 @@ jobs:
     # 22.04's OpenSSL 3.0.2 has a single-digit patch and isn't affected. Doesn't
     # affect the Docker image (python:3.12-slim's OpenSSL also has a single-digit
     # patch) - this only ever hit the bare CI runner.
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: Harden Runner
@@ -199,7 +199,7 @@ jobs:
             runner: ubuntu-latest
           - arch: arm64
             platform: linux/arm64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-26.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     permissions:
