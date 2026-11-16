@@ -9,6 +9,7 @@ import sqlite3
 from pathlib import Path
 
 from studylife_alexa.oauth_store import OAuthStore
+from studylife_alexa.token_hash import hash_token
 
 _PRE_MIGRATION_SCHEMA = """
 CREATE TABLE pending_auth (
@@ -93,3 +94,68 @@ async def test_pre_migration_row_reads_back_with_empty_base_url(tmp_path) -> Non
     assert linked is not None
     assert linked.api_key == "pre-migration-api-key"
     assert linked.base_url == ""
+
+
+async def test_authorization_code_is_stored_only_as_a_hash(tmp_path) -> None:
+    db_path = tmp_path / "codes.db"
+    store = OAuthStore(str(db_path), _ENCRYPTION_KEY)
+    await store.initialize()
+
+    await store.save_authorization_code("the-code", "key", "https://studylife.example.com")
+
+    with sqlite3.connect(db_path) as db:
+        stored = [row[0] for row in db.execute("SELECT code FROM auth_codes")]
+    assert stored == [hash_token("the-code")]
+    assert "the-code" not in stored
+
+    linked = await store.consume_authorization_code("the-code")
+    assert linked is not None
+    assert linked.api_key == "key"
+    assert linked.base_url == "https://studylife.example.com"
+
+
+async def test_authorization_code_stays_single_use(tmp_path) -> None:
+    store = OAuthStore(str(tmp_path / "single_use.db"), _ENCRYPTION_KEY)
+    await store.initialize()
+    await store.save_authorization_code("once", "key", "https://studylife.example.com")
+
+    assert await store.consume_authorization_code("once") is not None
+    assert await store.consume_authorization_code("once") is None
+
+
+async def test_presenting_the_stored_hash_does_not_redeem(tmp_path) -> None:
+    """Someone who reads the database must not be able to redeem the stored value."""
+    store = OAuthStore(str(tmp_path / "hash_replay.db"), _ENCRYPTION_KEY)
+    await store.initialize()
+    await store.save_authorization_code("secret-code", "key", "https://studylife.example.com")
+
+    assert await store.consume_authorization_code(hash_token("secret-code")) is None
+
+
+async def test_initialize_hashes_a_plaintext_code_from_the_previous_release(tmp_path) -> None:
+    """A code issued right before the upgrade still redeems after it, and initialize
+    stays idempotent (a second run does not hash the hash)."""
+    from cryptography.fernet import Fernet
+
+    db_path = tmp_path / "legacy_code.db"
+    store = OAuthStore(str(db_path), _ENCRYPTION_KEY)
+    await store.initialize()
+    encrypted = Fernet(_ENCRYPTION_KEY.encode()).encrypt(b"legacy-key")
+    with sqlite3.connect(db_path) as db:
+        db.execute(
+            "INSERT INTO auth_codes (code, encrypted_api_key, studylife_instance_url, expires_at) "
+            "VALUES (?, ?, ?, ?)",
+            ("legacy-code", encrypted, "https://studylife.example.com", 9_999_999_999.0),
+        )
+        db.commit()
+
+    await store.initialize()
+    await store.initialize()
+
+    with sqlite3.connect(db_path) as db:
+        stored = [row[0] for row in db.execute("SELECT code FROM auth_codes")]
+    assert stored == [hash_token("legacy-code")]
+
+    linked = await store.consume_authorization_code("legacy-code")
+    assert linked is not None
+    assert linked.api_key == "legacy-key"

@@ -26,6 +26,8 @@ from dataclasses import dataclass
 import aiosqlite
 from cryptography.fernet import Fernet
 
+from studylife_alexa.token_hash import hash_token, is_hashed
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS pending_auth (
     request_id TEXT PRIMARY KEY,
@@ -128,7 +130,22 @@ class OAuthStore:
                 await db.execute(
                     "ALTER TABLE pending_auth ADD COLUMN pkce_verifier TEXT NOT NULL DEFAULT ''"
                 )
+            await self._hash_legacy_authorization_codes(db)
             await db.commit()
+
+    @staticmethod
+    async def _hash_legacy_authorization_codes(db: aiosqlite.Connection) -> None:
+        """Authorization codes are stored hashed like the tokens (token_hash.py). A code
+        written in plaintext by the previous release is rewritten in place here, so a code
+        issued just before the upgrade still redeems. Idempotent: hashed rows are skipped.
+        A code an old instance writes after this ran (overlapping rollout) cannot redeem;
+        the user retries the link once - codes live five minutes, so that window is short."""
+        cursor = await db.execute("SELECT code FROM auth_codes")
+        for (stored,) in await cursor.fetchall():
+            if not is_hashed(stored):
+                await db.execute(
+                    "UPDATE auth_codes SET code = ? WHERE code = ?", (hash_token(stored), stored)
+                )
 
     # --- authorize() -> StudyLife connect flow round trip ---
 
@@ -191,7 +208,7 @@ class OAuthStore:
                 "INSERT OR REPLACE INTO auth_codes "
                 "(code, encrypted_api_key, studylife_instance_url, expires_at) VALUES (?, ?, ?, ?)",
                 (
-                    code,
+                    hash_token(code),
                     encrypted,
                     studylife_instance_url,
                     time.time() + AUTHORIZATION_CODE_TTL_SECONDS,
@@ -201,15 +218,17 @@ class OAuthStore:
 
     async def consume_authorization_code(self, code: str) -> LinkedAccount | None:
         """Single-use (RFC 6749 SS10.5) - deleted whether or not it turns out to still be
-        valid, so a replayed code can never succeed twice."""
+        valid, so a replayed code can never succeed twice. Stored and looked up as a hash
+        (token_hash.py), so a copy of the database holds no redeemable code."""
+        stored = hash_token(code)
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
                 "SELECT encrypted_api_key, studylife_instance_url, expires_at "
                 "FROM auth_codes WHERE code = ?",
-                (code,),
+                (stored,),
             )
             row = await cursor.fetchone()
-            await db.execute("DELETE FROM auth_codes WHERE code = ?", (code,))
+            await db.execute("DELETE FROM auth_codes WHERE code = ?", (stored,))
             await db.commit()
 
         if row is None:
