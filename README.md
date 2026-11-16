@@ -1,12 +1,14 @@
-# studylife-alexa
+# StudyAtrium Alexa
+
+(formerly StudyLife)
 
 [![CI](https://github.com/lukislp/studylife-alexa/actions/workflows/ci.yml/badge.svg)](https://github.com/lukislp/studylife-alexa/actions/workflows/ci.yml) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/lukislp/studylife-alexa/badge)](https://scorecard.dev/viewer/?uri=github.com/lukislp/studylife-alexa) [![CodeQL](https://github.com/lukislp/studylife-alexa/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/lukislp/studylife-alexa/security/code-scanning)
 [![Release](https://img.shields.io/github/v/release/lukislp/studylife-alexa)](https://github.com/lukislp/studylife-alexa/releases)
 [![License: AGPL-3.0](https://img.shields.io/github/license/lukislp/studylife-alexa)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB)](https://www.python.org/)
 
-Alexa Skill backend for [StudyLife](https://github.com/lukislp/studylife): voice control for
-the focus timer and study sessions, account-linked to your own StudyLife instance.
+Alexa Skill backend for [StudyAtrium](https://github.com/lukislp/studylife): voice control for
+the focus timer and study sessions, account-linked to your own StudyAtrium instance.
 
 ## Status
 
@@ -37,7 +39,7 @@ the focus timer and study sessions, account-linked to your own StudyLife instanc
 - `AMAZON.HelpIntent` / `AMAZON.FallbackIntent` / `AMAZON.CancelIntent` /
   `AMAZON.StopIntent` - built-ins
 
-Every StudyLife-backed intent shares the same account-linking resolution
+Every StudyAtrium-backed intent shares the same account-linking resolution
 (`_resolve_api_key`/`_link_account_response` in `handlers.py`) - falls back to a
 `LinkAccountCard` prompt if the account isn't linked yet or the link expired.
 
@@ -72,13 +74,13 @@ uv run ruff format --check .
 
 ## Account linking
 
-Any intent that calls StudyLife on the user's behalf (`CoursesIntent` and onward) needs
+Any intent that calls StudyAtrium on the user's behalf (`CoursesIntent` and onward) needs
 account linking - a small OAuth 2.0 Authorization Code Grant server
-(`oauth_provider.py`) wraps StudyLife's own generic connect flow
+(`oauth_provider.py`) wraps StudyAtrium's own generic connect flow
 (identity-contract-v1 SS2, the same one [studylife-cli](https://github.com/lukislp/studylife-cli)
-uses), rather than exposing StudyLife's login to Alexa directly.
+uses), rather than exposing StudyAtrium's login to Alexa directly.
 
-**Multi-tenant**: this server is not wired to one fixed StudyLife instance. Every user
+**Multi-tenant**: this server is not wired to one fixed StudyAtrium instance. Every user
 names their own self-hosted instance during linking - `/authorize` shows a small form
 asking for it (pinging `/api/system/version` first to catch a typo'd/unreachable URL
 before ever redirecting there) - and that URL travels alongside their API key through
@@ -115,8 +117,8 @@ Setting this server up (once, by whoever deploys it) still needs:
 4. Set `ALEXA_PUBLIC_URL`, `ALEXA_CLIENT_ID`, `ALEXA_CLIENT_SECRET`, `ALEXA_REDIRECT_URIS`,
    and `ALEXA_TOKEN_ENCRYPTION_KEY` (see `.env.example`).
 5. In the Alexa app (or the console's Test tab), linking the account opens
-   `/authorize`, which asks for the user's own StudyLife instance URL, then redirects to
-   THAT instance's own login/consent page - approve it, and StudyLife redirects back
+   `/authorize`, which asks for the user's own StudyAtrium instance URL, then redirects to
+   THAT instance's own login/consent page - approve it, and StudyAtrium redirects back
    through this server to Alexa.
 
 ## Deployment
@@ -139,14 +141,14 @@ this service adds five of its own:
 |---|---|---|---|
 | `studylife_alexa_request_duration_seconds` | Histogram | `route`, `method` | HTTP latency per route |
 | `studylife_alexa_requests_total` | Counter | `route`, `method`, `status_class` | HTTP request volume and status (`2xx`/`3xx`/`4xx`/`5xx`) |
-| `studylife_alexa_upstream_requests_total` | Counter | `target`, `outcome` | Outbound-call volume to StudyLife, by outcome (`ok`/`http_error`/`failed`/`timeout`) |
-| `studylife_alexa_upstream_request_duration_seconds` | Histogram | `target` | Outbound-call latency to StudyLife |
+| `studylife_alexa_upstream_requests_total` | Counter | `target`, `outcome` | Outbound-call volume to StudyAtrium, by outcome (`ok`/`http_error`/`failed`/`timeout`) |
+| `studylife_alexa_upstream_request_duration_seconds` | Histogram | `target` | Outbound-call latency to StudyAtrium |
 | `studylife_alexa_intents_total` | Counter | `intent`, `outcome` | Alexa intent/request volume and outcome (`ok`/`error`) |
 
 `route` is always the matched route's own path template (never a raw path, so a 404 probe
 can't inject unbounded label values) - unmatched paths are labeled `"unmatched"`. `target`
 is always `"studylife-api"` today - every outbound call this service makes goes to
-whatever StudyLife instance the caller linked their account against - kept as a label for
+whatever StudyAtrium instance the caller linked their account against - kept as a label for
 consistency with the sibling repos' own upstream metrics. `intent` is the bounded
 intent/request name (e.g. `CoursesIntent`, `LaunchRequest`), never user utterance text or
 slot values.

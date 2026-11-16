@@ -446,7 +446,7 @@ async def test_course_goals_intent_with_open_and_completed_goals(
 
     body = _invoke("CourseGoalsIntent", access_token="course-goals-token")
 
-    assert "Du hast 3 Lernziele in StudyLife, davon sind 2 noch offen." in _speech(body)
+    assert "Du hast 3 Lernziele in StudyAtrium, davon sind 2 noch offen." in _speech(body)
 
 
 async def test_course_goals_intent_with_no_goals(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -455,7 +455,7 @@ async def test_course_goals_intent_with_no_goals(monkeypatch: pytest.MonkeyPatch
 
     body = _invoke("CourseGoalsIntent", access_token="course-goals-token-empty")
 
-    assert "Du hast aktuell keine Lernziele in StudyLife angelegt." in _speech(body)
+    assert "Du hast aktuell keine Lernziele in StudyAtrium angelegt." in _speech(body)
 
 
 async def test_course_goals_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -495,7 +495,7 @@ async def test_study_programs_intent_with_programs(monkeypatch: pytest.MonkeyPat
 
     body = _invoke("StudyProgramsIntent", access_token="study-programs-token")
 
-    assert "Du hast 2 Studiengänge in StudyLife: Informatik, Mathematik." in _speech(body)
+    assert "Du hast 2 Studiengänge in StudyAtrium: Informatik, Mathematik." in _speech(body)
 
 
 async def test_study_programs_intent_with_no_programs(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -504,7 +504,7 @@ async def test_study_programs_intent_with_no_programs(monkeypatch: pytest.Monkey
 
     body = _invoke("StudyProgramsIntent", access_token="study-programs-token-empty")
 
-    assert "Du hast aktuell keinen Studiengang in StudyLife angelegt." in _speech(body)
+    assert "Du hast aktuell keinen Studiengang in StudyAtrium angelegt." in _speech(body)
 
 
 async def test_study_programs_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -831,7 +831,7 @@ async def test_next_session_intent_with_only_past_sessions(
 
     body = _invoke("NextSessionIntent", access_token="next-session-token-only-past")
 
-    assert "Du hast aktuell keine geplante Lernsession in StudyLife." in _speech(body)
+    assert "Du hast aktuell keine geplante Lernsession in StudyAtrium." in _speech(body)
 
 
 async def test_next_session_intent_with_no_sessions(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -840,7 +840,7 @@ async def test_next_session_intent_with_no_sessions(monkeypatch: pytest.MonkeyPa
 
     body = _invoke("NextSessionIntent", access_token="next-session-token-empty")
 
-    assert "Du hast aktuell keine geplante Lernsession in StudyLife." in _speech(body)
+    assert "Du hast aktuell keine geplante Lernsession in StudyAtrium." in _speech(body)
 
 
 async def test_next_session_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -880,7 +880,7 @@ async def test_notes_overview_intent_with_several_notes(monkeypatch: pytest.Monk
 
     body = _invoke("NotesOverviewIntent", access_token="notes-overview-token")
 
-    assert "Du hast insgesamt 4 Notizen in StudyLife." in _speech(body)
+    assert "Du hast insgesamt 4 Notizen in StudyAtrium." in _speech(body)
 
 
 async def test_notes_overview_intent_with_exactly_one_note(
@@ -891,7 +891,7 @@ async def test_notes_overview_intent_with_exactly_one_note(
 
     body = _invoke("NotesOverviewIntent", access_token="notes-overview-token-one")
 
-    assert "Du hast insgesamt 1 Notiz in StudyLife." in _speech(body)
+    assert "Du hast insgesamt 1 Notiz in StudyAtrium." in _speech(body)
 
 
 async def test_notes_overview_intent_with_no_notes(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -900,7 +900,7 @@ async def test_notes_overview_intent_with_no_notes(monkeypatch: pytest.MonkeyPat
 
     body = _invoke("NotesOverviewIntent", access_token="notes-overview-token-empty")
 
-    assert "Du hast aktuell keine Notizen in StudyLife." in _speech(body)
+    assert "Du hast aktuell keine Notizen in StudyAtrium." in _speech(body)
 
 
 async def test_notes_overview_intent_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1260,7 +1260,7 @@ async def test_courses_intent_en_us_singular_pluralization(
 
     body = _invoke("CoursesIntent", access_token="en-courses-token-single", locale="en-US")
 
-    assert "1 course in StudyLife." in _speech(body)
+    assert "1 course in StudyAtrium." in _speech(body)
     assert "1 courses" not in _speech(body)
 
 

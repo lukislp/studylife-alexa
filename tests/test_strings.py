@@ -98,13 +98,13 @@ def test_en_format_duration_hours_and_minutes() -> None:
 
 
 def test_de_courses_count() -> None:
-    assert DeStrings.courses_count(1) == "Du hast aktuell 1 Kurs in StudyLife."
-    assert DeStrings.courses_count(3) == "Du hast aktuell 3 Kurse in StudyLife."
+    assert DeStrings.courses_count(1) == "Du hast aktuell 1 Kurs in StudyAtrium."
+    assert DeStrings.courses_count(3) == "Du hast aktuell 3 Kurse in StudyAtrium."
 
 
 def test_en_courses_count() -> None:
-    assert EnStrings.courses_count(1) == "You currently have 1 course in StudyLife."
-    assert EnStrings.courses_count(3) == "You currently have 3 courses in StudyLife."
+    assert EnStrings.courses_count(1) == "You currently have 1 course in StudyAtrium."
+    assert EnStrings.courses_count(3) == "You currently have 3 courses in StudyAtrium."
 
 
 def test_de_next_session_with_and_without_course_name() -> None:

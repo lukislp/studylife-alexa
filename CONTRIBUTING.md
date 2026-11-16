@@ -1,6 +1,6 @@
-# Contributing to StudyLife Alexa
+# Contributing to StudyAtrium Alexa
 
-Thanks for taking the time. StudyLife Alexa is a single-maintainer project, so the process is
+Thanks for taking the time. StudyAtrium Alexa is a single-maintainer project, so the process is
 deliberately small - but it is the same for every change, including the maintainer's own.
 
 ## How changes get in
