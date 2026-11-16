@@ -112,7 +112,7 @@ def test_authorize_redirects_to_studylife_connect(client, monkeypatch: pytest.Mo
     query = parse_qs(location.query)
     assert query["redirect_uri"] == ["https://studylife-alexa.example.com/oauth/studylife/callback"]
     assert "state" in query
-    # PKCE towards StudyLife: a fresh S256 challenge per authorization, verifier never in the URL.
+    # PKCE towards StudyAtrium: a fresh S256 challenge per authorization, verifier never in the URL.
     assert query["code_challenge_method"] == ["S256"]
     assert len(query["code_challenge"][0]) == 43
     assert "code_verifier" not in query
@@ -160,7 +160,7 @@ async def test_full_round_trip_authorize_to_token(client, monkeypatch: pytest.Mo
     )
     our_state = parse_qs(urlparse(authorize_response.headers["location"]).query)["state"][0]
 
-    # Step 2: StudyLife's connect flow redirects back with our own state + an assertion.
+    # Step 2: StudyAtrium's connect flow redirects back with our own state + an assertion.
     callback_response = client.get(
         "/oauth/studylife/callback",
         params={"state": our_state, "assertion": "fake-assertion"},

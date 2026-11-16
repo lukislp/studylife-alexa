@@ -123,7 +123,7 @@ _BASE_STYLE = """
 _ERROR_PAGE = (
     """<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>StudyLife</title>"""
+<head><meta charset="utf-8"><title>StudyAtrium</title>"""
     + _BASE_STYLE
     + """</head>
 <body>
@@ -139,14 +139,14 @@ _ERROR_PAGE = (
 _INSTANCE_FORM_PAGE = (
     """<!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><title>Connect StudyLife</title>"""
+<head><meta charset="utf-8"><title>Connect StudyAtrium</title>"""
     + _BASE_STYLE
     + """</head>
 <body>
 <div class="card">
 <img class="logo" src="/static/icon.png" alt="">
-<h1>Connect your StudyLife instance</h1>
-<p>Enter the address of your own, self-hosted StudyLife instance.</p>
+<h1>Connect your StudyAtrium instance</h1>
+<p>Enter the address of your own, self-hosted StudyAtrium instance.</p>
 __ERROR__
 <form method="get" action="/authorize">
 __HIDDEN_FIELDS__
@@ -275,7 +275,7 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
             return _instance_form(
                 alexa_params,
                 prefill=instance_url,
-                error=f"Could not reach a StudyLife instance at {instance_url}. "
+                error=f"Could not reach a StudyAtrium instance at {instance_url}. "
                 "Check the address and try again.",
             )
 
@@ -322,7 +322,7 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
             )
         if not assertion:
             return _error_page(
-                "StudyLife could not confirm this connection - it may have been denied.",
+                "StudyAtrium could not confirm this connection - it may have been denied.",
                 status_code=400,
             )
 
@@ -331,7 +331,7 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
         )
         if exchanged is None:
             return _error_page(
-                "StudyLife could not confirm this connection. Please try again.",
+                "StudyAtrium could not confirm this connection. Please try again.",
                 status_code=401,
             )
 

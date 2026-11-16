@@ -126,28 +126,28 @@ class _Strings:
 
 class DeStrings(_Strings):
     FOLLOWUP_REPROMPT = "Sonst noch etwas?"
-    WELCOME = "Willkommen bei Study Life. Sag zum Testen einfach: sag hallo."
-    TEST_OK = "Verbindung funktioniert. Study Life ist bereit."
+    WELCOME = "Willkommen bei Study Atrium. Sag zum Testen einfach: sag hallo."
+    TEST_OK = "Verbindung funktioniert. Study Atrium ist bereit."
     NOT_LINKED = (
-        "Dafür muss dein StudyLife-Konto erst verknüpft werden. "
+        "Dafür muss dein StudyAtrium-Konto erst verknüpft werden. "
         "Ich habe dir dazu einen Link in der Alexa-App geschickt."
     )
     EXPIRED_LINK = (
-        "Deine Verknüpfung ist abgelaufen. Bitte verbinde dein StudyLife-Konto "
+        "Deine Verknüpfung ist abgelaufen. Bitte verbinde dein StudyAtrium-Konto "
         "in der Alexa-App erneut."
     )
-    UNREACHABLE = "StudyLife konnte gerade nicht erreicht werden. Versuch es später noch mal."
-    COURSES_NONE = "Du hast aktuell keine Kurse in StudyLife angelegt."
+    UNREACHABLE = "StudyAtrium konnte gerade nicht erreicht werden. Versuch es später noch mal."
+    COURSES_NONE = "Du hast aktuell keine Kurse in StudyAtrium angelegt."
     TIMER_NOT_RUNNING = "Gerade läuft kein Fokus-Timer."
     TIMER_BREAK = "Dein Fokus-Timer läuft, du bist gerade in einer Pause."
     TIMER_RUNNING = "Dein Fokus-Timer läuft gerade."
     RECENT_SESSIONS_NONE = "Du hast in den letzten sieben Tagen keine Lernsessions gehabt."
-    NEXT_SESSION_NONE = "Du hast aktuell keine geplante Lernsession in StudyLife."
-    GOALS_NONE = "Du hast aktuell keine Lernziele in StudyLife angelegt."
-    PROGRAMS_NONE = "Du hast aktuell keinen Studiengang in StudyLife angelegt."
+    NEXT_SESSION_NONE = "Du hast aktuell keine geplante Lernsession in StudyAtrium."
+    GOALS_NONE = "Du hast aktuell keine Lernziele in StudyAtrium angelegt."
+    PROGRAMS_NONE = "Du hast aktuell keinen Studiengang in StudyAtrium angelegt."
     PROGRAM_PROGRESS_ASK = "Für welchen Studiengang möchtest du den Fortschritt wissen?"
     SEARCH_NOTES_ASK = "Wonach genau soll ich in deinen Notizen suchen?"
-    NOTES_NONE = "Du hast aktuell keine Notizen in StudyLife."
+    NOTES_NONE = "Du hast aktuell keine Notizen in StudyAtrium."
     CREATE_NOTE_ASK = "Was soll ich mir für dich notieren?"
     NOTE_SAVED = "Notiz gespeichert."
     HELP = (
@@ -157,7 +157,7 @@ class DeStrings(_Strings):
     )
     FALLBACK = "Das habe ich nicht verstanden. Sag zum Beispiel: wie viele Kurse habe ich."
     NAVIGATE_HOME = (
-        "Du bist bereits bei Study Life. Frag mich einfach etwas, zum Beispiel wie viele "
+        "Du bist bereits bei Study Atrium. Frag mich einfach etwas, zum Beispiel wie viele "
         "Kurse du hast."
     )
     GOODBYE = "Bis bald."
@@ -191,7 +191,7 @@ class DeStrings(_Strings):
 
     @staticmethod
     def courses_count(count: int) -> str:
-        return f"Du hast aktuell {DeStrings.pluralize(count, 'Kurs', 'Kurse')} in StudyLife."
+        return f"Du hast aktuell {DeStrings.pluralize(count, 'Kurs', 'Kurse')} in StudyAtrium."
 
     @staticmethod
     def study_time_none(label: str) -> str:
@@ -218,7 +218,7 @@ class DeStrings(_Strings):
     def goals_count(count: int, open_goals: int) -> str:
         verb = "ist" if open_goals == 1 else "sind"
         return (
-            f"Du hast {DeStrings.pluralize(count, 'Lernziel', 'Lernziele')} in StudyLife, "
+            f"Du hast {DeStrings.pluralize(count, 'Lernziel', 'Lernziele')} in StudyAtrium, "
             f"davon {verb} {open_goals} noch offen."
         )
 
@@ -226,7 +226,7 @@ class DeStrings(_Strings):
     def programs_list(count: int, names: str) -> str:
         return (
             f"Du hast {DeStrings.pluralize(count, 'Studiengang', 'Studiengänge')} "
-            f"in StudyLife: {names}."
+            f"in StudyAtrium: {names}."
         )
 
     @staticmethod
@@ -254,7 +254,7 @@ class DeStrings(_Strings):
 
     @staticmethod
     def notes_overview(count: int) -> str:
-        return f"Du hast insgesamt {DeStrings.pluralize(count, 'Notiz', 'Notizen')} in StudyLife."
+        return f"Du hast insgesamt {DeStrings.pluralize(count, 'Notiz', 'Notizen')} in StudyAtrium."
 
     @staticmethod
     def note_title(now_str: str) -> str:
@@ -263,24 +263,27 @@ class DeStrings(_Strings):
 
 class EnStrings(_Strings):
     FOLLOWUP_REPROMPT = "Anything else?"
-    WELCOME = "Welcome to Study Life. To test the connection, just say: say hello."
-    TEST_OK = "Connection is working. Study Life is ready."
-    NOT_LINKED = "You need to link your StudyLife account first. I've sent a link to the Alexa app."
-    EXPIRED_LINK = (
-        "Your account link has expired. Please link your StudyLife account again in the Alexa app."
+    WELCOME = "Welcome to Study Atrium. To test the connection, just say: say hello."
+    TEST_OK = "Connection is working. Study Atrium is ready."
+    NOT_LINKED = (
+        "You need to link your StudyAtrium account first. I've sent a link to the Alexa app."
     )
-    UNREACHABLE = "StudyLife couldn't be reached right now. Please try again later."
-    COURSES_NONE = "You don't have any courses set up in StudyLife yet."
+    EXPIRED_LINK = (
+        "Your account link has expired. "
+        "Please link your StudyAtrium account again in the Alexa app."
+    )
+    UNREACHABLE = "StudyAtrium couldn't be reached right now. Please try again later."
+    COURSES_NONE = "You don't have any courses set up in StudyAtrium yet."
     TIMER_NOT_RUNNING = "Your focus timer isn't running right now."
     TIMER_BREAK = "Your focus timer is running, you're currently on a break."
     TIMER_RUNNING = "Your focus timer is running right now."
     RECENT_SESSIONS_NONE = "You haven't had any study sessions in the last seven days."
-    NEXT_SESSION_NONE = "You don't have any study session scheduled in StudyLife right now."
-    GOALS_NONE = "You don't have any study goals set up in StudyLife yet."
-    PROGRAMS_NONE = "You don't have any study program set up in StudyLife yet."
+    NEXT_SESSION_NONE = "You don't have any study session scheduled in StudyAtrium right now."
+    GOALS_NONE = "You don't have any study goals set up in StudyAtrium yet."
+    PROGRAMS_NONE = "You don't have any study program set up in StudyAtrium yet."
     PROGRAM_PROGRESS_ASK = "Which study program would you like to know your progress in?"
     SEARCH_NOTES_ASK = "What exactly should I search your notes for?"
-    NOTES_NONE = "You don't have any notes in StudyLife right now."
+    NOTES_NONE = "You don't have any notes in StudyAtrium right now."
     CREATE_NOTE_ASK = "What should I note down for you?"
     NOTE_SAVED = "Note saved."
     HELP = (
@@ -290,7 +293,7 @@ class EnStrings(_Strings):
     )
     FALLBACK = "I didn't get that. Try saying: how many courses do I have."
     NAVIGATE_HOME = (
-        "You're already at Study Life. Just ask me something, like how many courses you have."
+        "You're already at Study Atrium. Just ask me something, like how many courses you have."
     )
     GOODBYE = "See you soon."
     ERROR = "Sorry, something went wrong."
@@ -321,7 +324,8 @@ class EnStrings(_Strings):
 
     @staticmethod
     def courses_count(count: int) -> str:
-        return f"You currently have {EnStrings.pluralize(count, 'course', 'courses')} in StudyLife."
+        courses = EnStrings.pluralize(count, "course", "courses")
+        return f"You currently have {courses} in StudyAtrium."
 
     @staticmethod
     def study_time_none(label: str) -> str:
@@ -348,7 +352,7 @@ class EnStrings(_Strings):
     def goals_count(count: int, open_goals: int) -> str:
         verb = "is" if open_goals == 1 else "are"
         return (
-            f"You have {EnStrings.pluralize(count, 'study goal', 'study goals')} in StudyLife, "
+            f"You have {EnStrings.pluralize(count, 'study goal', 'study goals')} in StudyAtrium, "
             f"{open_goals} of which {verb} still open."
         )
 
@@ -356,7 +360,7 @@ class EnStrings(_Strings):
     def programs_list(count: int, names: str) -> str:
         return (
             f"You have {EnStrings.pluralize(count, 'study program', 'study programs')} "
-            f"in StudyLife: {names}."
+            f"in StudyAtrium: {names}."
         )
 
     @staticmethod
@@ -384,7 +388,7 @@ class EnStrings(_Strings):
 
     @staticmethod
     def notes_overview(count: int) -> str:
-        return f"You have {EnStrings.pluralize(count, 'note', 'notes')} in total in StudyLife."
+        return f"You have {EnStrings.pluralize(count, 'note', 'notes')} in total in StudyAtrium."
 
     @staticmethod
     def note_title(now_str: str) -> str:
