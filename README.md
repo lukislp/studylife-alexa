@@ -121,6 +121,14 @@ Setting this server up (once, by whoever deploys it) still needs:
    THAT instance's own login/consent page - approve it, and StudyAtrium redirects back
    through this server to Alexa.
 
+`/authorize` is public and contacts the instance URL a visitor types in, so that URL is
+restricted: it must be a plain `https://` address, and every address its host resolves to
+must be publicly routable (loopback, private, link-local and similar ranges are refused;
+redirects are not followed, the request times out after 5 s and the response is capped at
+4 KB). Optionally set `ALEXA_ALLOWED_INSTANCE_HOSTS` to a comma-separated list of
+hostnames to accept only those instances (unset = any public https host, so self-hosting
+works without configuration).
+
 ## Deployment
 
 Self-hosted (K3s + Tailscale Funnel), same pattern as
