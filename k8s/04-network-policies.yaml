@@ -49,7 +49,7 @@ spec:
         - { protocol: TCP, port: 8000 }
 ---
 # Lets the StudyAtrium server pods (studylife repo, namespace studylife-scale, label
-# app=studylife-web) call POST /internal/users/{id}/purge after an account deletion. The route is
+# app=studylife-web for the immediate attempt, app=studylife-worker for outbox retries) call POST /internal/users/{id}/purge after an account deletion. The route is
 # secret-protected and deliberately absent from the public Funnel (k8s/05-tailscale-funnel.yaml).
 # Only meaningful when the linked instance is this cluster's own StudyAtrium; other instances
 # are not reachable from here and run their own purge call to whatever base URL they configure.
@@ -64,7 +64,9 @@ spec:
   ingress:
     - from:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: studylife-scale } }
-          podSelector: { matchLabels: { app: studylife-web } }
+          podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [studylife-web, studylife-worker] }
       ports:
         - { protocol: TCP, port: 8000 }
 ---
