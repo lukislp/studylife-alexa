@@ -8,7 +8,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from studylife_alexa.oauth_store import OAuthStore
+from studylife_alexa.oauth_store import OAuthStore, load_access_token_sync
 from studylife_alexa.token_hash import hash_token
 
 _PRE_MIGRATION_SCHEMA = """
@@ -159,3 +159,66 @@ async def test_initialize_hashes_a_plaintext_code_from_the_previous_release(tmp_
     linked = await store.consume_authorization_code("legacy-code")
     assert linked is not None
     assert linked.api_key == "legacy-key"
+
+
+# --- token hashing at rest (audit 2026-11-16 L22) ---
+
+
+def _raw_tokens(db_path: Path, table: str) -> list[str]:
+    with sqlite3.connect(db_path) as db:
+        return [row[0] for row in db.execute(f"SELECT token FROM {table}")]
+
+
+async def test_tokens_are_stored_hashed_and_still_load(tmp_path: Path) -> None:
+    db_path = tmp_path / "hashed.db"
+    store = OAuthStore(str(db_path), _ENCRYPTION_KEY)
+    await store.initialize()
+
+    await store.save_access_token("access-secret", "key", "https://studylife.example")
+    await store.save_refresh_token("refresh-secret", "key", "https://studylife.example")
+
+    assert _raw_tokens(db_path, "access_tokens") == [hash_token("access-secret")]
+    assert _raw_tokens(db_path, "refresh_tokens") == [hash_token("refresh-secret")]
+    linked = await store.load_access_token("access-secret")
+    assert linked is not None
+    assert linked.api_key == "key"
+    # The stored digest itself is not a usable bearer token.
+    assert await store.load_access_token(hash_token("access-secret")) is None
+    rotated = await store.consume_refresh_token("refresh-secret")
+    assert rotated is not None
+    assert await store.consume_refresh_token("refresh-secret") is None
+    synced = load_access_token_sync(str(db_path), _ENCRYPTION_KEY, "access-secret")
+    assert synced is not None
+    assert synced.base_url == "https://studylife.example"
+
+
+async def test_initialize_upgrades_legacy_plaintext_tokens(tmp_path: Path) -> None:
+    from cryptography.fernet import Fernet
+
+    db_path = tmp_path / "legacy.db"
+    first = OAuthStore(str(db_path), _ENCRYPTION_KEY)
+    await first.initialize()
+    encrypted = Fernet(_ENCRYPTION_KEY.encode()).encrypt(b"legacy-key")
+    with sqlite3.connect(db_path) as db:
+        for table, token in (
+            ("access_tokens", "legacy-access"),
+            ("refresh_tokens", "legacy-refresh"),
+        ):
+            db.execute(
+                f"INSERT INTO {table} (token, encrypted_api_key, studylife_instance_url, "
+                "expires_at) VALUES (?, ?, ?, ?)",
+                (token, encrypted, "https://studylife.example", 9_999_999_999.0),
+            )
+
+    store = OAuthStore(str(db_path), _ENCRYPTION_KEY)
+    await store.initialize()
+    await store.initialize()  # idempotent
+
+    assert _raw_tokens(db_path, "access_tokens") == [hash_token("legacy-access")]
+    assert _raw_tokens(db_path, "refresh_tokens") == [hash_token("legacy-refresh")]
+    access = await store.load_access_token("legacy-access")
+    refresh = await store.consume_refresh_token("legacy-refresh")
+    assert access is not None
+    assert access.api_key == "legacy-key"
+    assert refresh is not None
+    assert refresh.api_key == "legacy-key"

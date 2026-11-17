@@ -101,6 +101,11 @@ _TABLES_NEEDING_INSTANCE_URL_MIGRATION = (
 )
 
 
+# Table -> key column stored hashed - see token_hash.py. The authorization codes are hashed
+# the same way as the tokens.
+_HASHED_KEY_COLUMNS = {"access_tokens": "token", "refresh_tokens": "token", "auth_codes": "code"}
+
+
 class OAuthStore:
     def __init__(self, db_path: str, encryption_key: str) -> None:
         self._db_path = db_path
@@ -130,21 +135,25 @@ class OAuthStore:
                 await db.execute(
                     "ALTER TABLE pending_auth ADD COLUMN pkce_verifier TEXT NOT NULL DEFAULT ''"
                 )
-            await self._hash_legacy_authorization_codes(db)
+            for table, column in _HASHED_KEY_COLUMNS.items():
+                await self._hash_legacy_keys(db, table, column)
             await db.commit()
 
     @staticmethod
-    async def _hash_legacy_authorization_codes(db: aiosqlite.Connection) -> None:
-        """Authorization codes are stored hashed like the tokens (token_hash.py). A code
-        written in plaintext by the previous release is rewritten in place here, so a code
-        issued just before the upgrade still redeems. Idempotent: hashed rows are skipped.
-        A code an old instance writes after this ran (overlapping rollout) cannot redeem;
-        the user retries the link once - codes live five minutes, so that window is short."""
-        cursor = await db.execute("SELECT code FROM auth_codes")
+    async def _hash_legacy_keys(db: aiosqlite.Connection, table: str, column: str) -> None:
+        """Audit 2026-11-16 L22: rows written before hashing hold the bearer token (or the
+        authorization code) in plaintext. Rewrite them in place (hashed key, same payload)
+        so every token and code issued earlier keeps validating - the presented value is
+        hashed at lookup - and nobody is logged out. Idempotent: already-hashed rows are
+        skipped, so it is safe on every start and a no-op once the table is clean. A code an
+        old instance writes after this ran (overlapping rollout) cannot redeem; the user
+        retries the link once - codes live five minutes, so that window is short."""
+        cursor = await db.execute(f"SELECT {column} FROM {table}")
         for (stored,) in await cursor.fetchall():
             if not is_hashed(stored):
                 await db.execute(
-                    "UPDATE auth_codes SET code = ? WHERE code = ?", (hash_token(stored), stored)
+                    f"UPDATE {table} SET {column} = ? WHERE {column} = ?",
+                    (hash_token(stored), stored),
                 )
 
     # --- authorize() -> StudyLife connect flow round trip ---
@@ -251,7 +260,12 @@ class OAuthStore:
                 "INSERT OR REPLACE INTO access_tokens "
                 "(token, encrypted_api_key, studylife_instance_url, expires_at) "
                 "VALUES (?, ?, ?, ?)",
-                (token, encrypted, studylife_instance_url, time.time() + ACCESS_TOKEN_TTL_SECONDS),
+                (
+                    hash_token(token),
+                    encrypted,
+                    studylife_instance_url,
+                    time.time() + ACCESS_TOKEN_TTL_SECONDS,
+                ),
             )
             await db.commit()
 
@@ -260,7 +274,7 @@ class OAuthStore:
             cursor = await db.execute(
                 "SELECT encrypted_api_key, studylife_instance_url, expires_at "
                 "FROM access_tokens WHERE token = ?",
-                (token,),
+                (hash_token(token),),
             )
             row = await cursor.fetchone()
 
@@ -282,7 +296,12 @@ class OAuthStore:
                 "INSERT OR REPLACE INTO refresh_tokens "
                 "(token, encrypted_api_key, studylife_instance_url, expires_at) "
                 "VALUES (?, ?, ?, ?)",
-                (token, encrypted, studylife_instance_url, time.time() + REFRESH_TOKEN_TTL_SECONDS),
+                (
+                    hash_token(token),
+                    encrypted,
+                    studylife_instance_url,
+                    time.time() + REFRESH_TOKEN_TTL_SECONDS,
+                ),
             )
             await db.commit()
 
@@ -292,10 +311,10 @@ class OAuthStore:
             cursor = await db.execute(
                 "SELECT encrypted_api_key, studylife_instance_url, expires_at "
                 "FROM refresh_tokens WHERE token = ?",
-                (token,),
+                (hash_token(token),),
             )
             row = await cursor.fetchone()
-            await db.execute("DELETE FROM refresh_tokens WHERE token = ?", (token,))
+            await db.execute("DELETE FROM refresh_tokens WHERE token = ?", (hash_token(token),))
             await db.commit()
 
         if row is None:
@@ -320,7 +339,7 @@ def load_access_token_sync(db_path: str, encryption_key: str, token: str) -> Lin
         row = db.execute(
             "SELECT encrypted_api_key, studylife_instance_url, expires_at "
             "FROM access_tokens WHERE token = ?",
-            (token,),
+            (hash_token(token),),
         ).fetchone()
 
     if row is None:
