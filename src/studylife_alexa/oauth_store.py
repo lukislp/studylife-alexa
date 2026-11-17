@@ -19,7 +19,6 @@ can never accidentally use one user's key against another user's instance.
 
 from __future__ import annotations
 
-import hashlib
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -27,7 +26,7 @@ from dataclasses import dataclass
 import aiosqlite
 from cryptography.fernet import Fernet, InvalidToken
 
-from studylife_alexa.token_hash import hash_token, is_hashed
+from studylife_alexa.token_hash import hash_token, is_hashed, token_fingerprint
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS pending_auth (
@@ -377,10 +376,10 @@ class OAuthStore:
 
     def _key_hash(self, encrypted_api_key: bytes) -> str | None:
         try:
-            api_key = self._fernet.decrypt(encrypted_api_key).decode()
+            issued_token = self._fernet.decrypt(encrypted_api_key).decode()
         except InvalidToken:
             return None
-        return hashlib.sha256(api_key.encode()).hexdigest()
+        return token_fingerprint(issued_token)
 
 
 def load_access_token_sync(db_path: str, encryption_key: str, token: str) -> LinkedAccount | None:

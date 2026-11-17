@@ -20,5 +20,13 @@ def hash_token(token: str) -> str:
     return _PREFIX + hashlib.sha256(token.encode()).hexdigest()
 
 
+def token_fingerprint(token: str) -> str:
+    """Lookup fingerprint of a token StudyAtrium issued: lowercase hex SHA-256 without the
+    storage prefix, the same digest as the server's AuthSessionService.HashToken. The
+    account-deletion purge receives these fingerprints and matches stored keys against them.
+    It is an identifier of a high-entropy random value, not a password hash."""
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 def is_hashed(stored: str) -> bool:
     return stored.startswith(_PREFIX)
