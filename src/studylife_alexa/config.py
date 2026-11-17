@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     # app has exactly one redirect target, a skill has three).
     alexa_redirect_uris: str | None = None
 
+    # Optional comma-separated hostnames (e.g. "studylife.example.org,study.example.net")
+    # that /authorize accepts as the user's StudyLife instance. Unset = any public https
+    # host (self-hosting keeps working); either way private, loopback and link-local
+    # addresses are always refused (instance_guard.py).
+    alexa_allowed_instance_hosts: str | None = None
+
     # Fernet key (32 url-safe base64-encoded bytes, e.g. via
     # `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
     # encrypting the StudyLife API key at rest in oauth_store.py - this server needs the

@@ -26,6 +26,8 @@ from dataclasses import dataclass
 import aiosqlite
 from cryptography.fernet import Fernet
 
+from studylife_alexa.token_hash import hash_token, is_hashed
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS pending_auth (
     request_id TEXT PRIMARY KEY,
@@ -99,6 +101,10 @@ _TABLES_NEEDING_INSTANCE_URL_MIGRATION = (
 )
 
 
+# Tables whose `token` column is stored hashed - see token_hash.py.
+_HASHED_TOKEN_TABLES = ("access_tokens", "refresh_tokens")
+
+
 class OAuthStore:
     def __init__(self, db_path: str, encryption_key: str) -> None:
         self._db_path = db_path
@@ -128,7 +134,23 @@ class OAuthStore:
                 await db.execute(
                     "ALTER TABLE pending_auth ADD COLUMN pkce_verifier TEXT NOT NULL DEFAULT ''"
                 )
+            for table in _HASHED_TOKEN_TABLES:
+                await self._hash_legacy_tokens(db, table)
             await db.commit()
+
+    @staticmethod
+    async def _hash_legacy_tokens(db: aiosqlite.Connection, table: str) -> None:
+        """Audit 2026-11-16 L22: rows written before token hashing hold the bearer token
+        in plaintext. Rewrite them in place (hashed key, same payload) so every token
+        issued earlier keeps validating - the presented token is hashed at lookup - and
+        nobody is logged out. Idempotent: already-hashed rows are skipped, so it is safe
+        on every start and a no-op once the table is clean."""
+        cursor = await db.execute(f"SELECT token FROM {table}")
+        for (stored,) in await cursor.fetchall():
+            if not is_hashed(stored):
+                await db.execute(
+                    f"UPDATE {table} SET token = ? WHERE token = ?", (hash_token(stored), stored)
+                )
 
     # --- authorize() -> StudyLife connect flow round trip ---
 
@@ -232,7 +254,12 @@ class OAuthStore:
                 "INSERT OR REPLACE INTO access_tokens "
                 "(token, encrypted_api_key, studylife_instance_url, expires_at) "
                 "VALUES (?, ?, ?, ?)",
-                (token, encrypted, studylife_instance_url, time.time() + ACCESS_TOKEN_TTL_SECONDS),
+                (
+                    hash_token(token),
+                    encrypted,
+                    studylife_instance_url,
+                    time.time() + ACCESS_TOKEN_TTL_SECONDS,
+                ),
             )
             await db.commit()
 
@@ -241,7 +268,7 @@ class OAuthStore:
             cursor = await db.execute(
                 "SELECT encrypted_api_key, studylife_instance_url, expires_at "
                 "FROM access_tokens WHERE token = ?",
-                (token,),
+                (hash_token(token),),
             )
             row = await cursor.fetchone()
 
@@ -263,7 +290,12 @@ class OAuthStore:
                 "INSERT OR REPLACE INTO refresh_tokens "
                 "(token, encrypted_api_key, studylife_instance_url, expires_at) "
                 "VALUES (?, ?, ?, ?)",
-                (token, encrypted, studylife_instance_url, time.time() + REFRESH_TOKEN_TTL_SECONDS),
+                (
+                    hash_token(token),
+                    encrypted,
+                    studylife_instance_url,
+                    time.time() + REFRESH_TOKEN_TTL_SECONDS,
+                ),
             )
             await db.commit()
 
@@ -273,10 +305,10 @@ class OAuthStore:
             cursor = await db.execute(
                 "SELECT encrypted_api_key, studylife_instance_url, expires_at "
                 "FROM refresh_tokens WHERE token = ?",
-                (token,),
+                (hash_token(token),),
             )
             row = await cursor.fetchone()
-            await db.execute("DELETE FROM refresh_tokens WHERE token = ?", (token,))
+            await db.execute("DELETE FROM refresh_tokens WHERE token = ?", (hash_token(token),))
             await db.commit()
 
         if row is None:
@@ -301,7 +333,7 @@ def load_access_token_sync(db_path: str, encryption_key: str, token: str) -> Lin
         row = db.execute(
             "SELECT encrypted_api_key, studylife_instance_url, expires_at "
             "FROM access_tokens WHERE token = ?",
-            (token,),
+            (hash_token(token),),
         ).fetchone()
 
     if row is None:

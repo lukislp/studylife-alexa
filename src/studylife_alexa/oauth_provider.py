@@ -38,6 +38,7 @@ import binascii
 import hashlib
 import hmac
 import html
+import json
 import secrets
 from urllib.parse import urlencode
 
@@ -48,6 +49,14 @@ from starlette.datastructures import FormData
 
 from studylife_alexa.client import CLIENT_ID, exchange_assertion
 from studylife_alexa.config import Settings
+from studylife_alexa.instance_guard import (
+    MAX_RESPONSE_BYTES,
+    REQUEST_TIMEOUT_SECONDS,
+    is_acceptable_instance_url,
+    is_host_allowed,
+    parse_allowed_hosts,
+    resolves_to_public_addresses_only,
+)
 from studylife_alexa.metrics import track_upstream
 from studylife_alexa.oauth_store import ACCESS_TOKEN_TTL_SECONDS, OAuthStore
 
@@ -201,14 +210,29 @@ async def _verify_instance_reachable(instance_url: str) -> bool:
     /api/system/version is PublicUnlessInvalidSession (StudyLife's own
     SystemController), reachable with no credential, and returns {"version": "..."}
     only from a real StudyLife instance. Catches a typo'd or unreachable URL before it
-    turns into a confusing redirect-to-nowhere."""
+    turns into a confusing redirect-to-nowhere.
+
+    /authorize is public, so the host is attacker-chosen (audit 2026-11-16 L23): only
+    public addresses are contacted (instance_guard.py), redirects are not followed,
+    the timeout is short and the body read is capped."""
+    if not await resolves_to_public_addresses_only(instance_url):
+        return False
     try:
-        async with httpx.AsyncClient(timeout=5.0) as http, track_upstream(_UPSTREAM_TARGET) as call:
-            response = await http.get(f"{instance_url}/api/system/version")
+        async with (
+            httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS, follow_redirects=False) as http,
+            track_upstream(_UPSTREAM_TARGET) as call,
+            http.stream("GET", f"{instance_url}/api/system/version") as response,
+        ):
             if response.status_code != 200:
                 call.outcome = "http_error"
-        return response.status_code == 200 and "version" in response.json()
-    except (httpx.HTTPError, ValueError):
+                return False
+            body = b""
+            async for chunk in response.aiter_bytes():
+                body += chunk
+                if len(body) > MAX_RESPONSE_BYTES:
+                    return False
+        return "version" in json.loads(body)
+    except (httpx.HTTPError, ValueError, TypeError):
         return False
 
 
@@ -270,6 +294,21 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
                 alexa_params,
                 prefill=instance_url,
                 error="The instance URL must start with https://.",
+            )
+        if not is_acceptable_instance_url(instance_url):
+            return _instance_form(
+                alexa_params,
+                prefill=instance_url,
+                error="The instance URL must be a plain https address "
+                "(no credentials, query or fragment).",
+            )
+        if not is_host_allowed(
+            instance_url, parse_allowed_hosts(settings.alexa_allowed_instance_hosts)
+        ):
+            return _instance_form(
+                alexa_params,
+                prefill=instance_url,
+                error="This server only links accounts on approved instances.",
             )
         if not await _verify_instance_reachable(instance_url):
             return _instance_form(
