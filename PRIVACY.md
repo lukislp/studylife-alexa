@@ -1,6 +1,6 @@
 # Privacy Policy for StudyAtrium (Alexa Skill)
 
-_Last updated: 2026-08-31_
+_Last updated: 2026-11-17_
 
 StudyAtrium is an Alexa Skill that lets you ask about your courses, focus timer, study time,
 study programs, goals, and notes on your own, self-hosted [StudyAtrium](https://github.com/lukislp/studylife)
@@ -41,13 +41,23 @@ this skill makes is visible in [`client.py`](src/studylife_alexa/client.py).
 
 ## Data retention
 
+- **Authorization codes** (used once, during linking) expire after 5 minutes.
 - **Access tokens** (used by Alexa's backend on every request) expire after 1 hour.
 - **Refresh tokens** (used to obtain a new access token) expire after 90 days, and are rotated
   (invalidated and replaced) every time they're used.
-- Your encrypted API key and instance URL are stored only as long as at least one non-expired
-  token references them. Unlinking the skill in the Alexa app stops it from being used
-  immediately; the stored record itself is removed once its last token naturally expires,
-  within 90 days at the latest.
+- **Pending link requests** (the short step between choosing your instance and finishing the
+  login) are discarded after 10 minutes. They contain no API key.
+- An hourly cleanup job permanently deletes every expired code and token. An access token is
+  therefore gone at most about 2 hours after it was issued, and a refresh token at most 90 days
+  plus about 1 hour after it was issued.
+- Your encrypted API key and instance URL are stored only inside those records, so they are
+  removed with the last of them. Unlinking the skill in the Alexa app stops it from being used
+  immediately; the stored records are then removed when they expire, within 90 days at the latest.
+- **Deleting your StudyAtrium account** also removes this skill's records for you right away:
+  your StudyAtrium server tells this add-on to delete every code and token that holds one of
+  your API keys. This works when your instance is configured to send that request; if it is not,
+  or the add-on is unreachable at that moment, the records still disappear on expiry as above.
+  The API key itself is revoked with your account, so it is unusable either way.
 
 ## Permissions
 

@@ -48,6 +48,28 @@ spec:
       ports:
         - { protocol: TCP, port: 8000 }
 ---
+# Lets the StudyAtrium server pods (studylife repo, namespace studylife-scale, label
+# app=studylife-web for the immediate attempt, app=studylife-worker for outbox retries) call POST /internal/users/{id}/purge after an account deletion. The route is
+# secret-protected and deliberately absent from the public Funnel (k8s/05-tailscale-funnel.yaml).
+# Only meaningful when the linked instance is this cluster's own StudyAtrium; other instances
+# are not reachable from here and run their own purge call to whatever base URL they configure.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-studylife-server-to-studylife-alexa
+  namespace: studylife-alexa
+spec:
+  podSelector: { matchLabels: { app: studylife-alexa } }
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: studylife-scale } }
+          podSelector:
+            matchExpressions:
+              - { key: app, operator: In, values: [studylife-web, studylife-worker] }
+      ports:
+        - { protocol: TCP, port: 8000 }
+---
 # Lets the existing self-hosted Prometheus (studylife repo's k8s/14-prometheus.yaml) scrape
 # /metrics - it reaches pods directly (kubernetes_sd_configs, role: pod), not through the
 # Tailscale ingress path above, so this is the only allowance /metrics needs. Same
