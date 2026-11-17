@@ -88,6 +88,12 @@ the whole flow (see `oauth_store.py`'s module docstring). Two different people (
 accounts on the *same* shared instance - the instance URL is just routing, not
 identity) can link independently without stepping on each other.
 
+The five-minute authorization codes are stored only as SHA-256 hashes (`token_hash.py`),
+so a copy of the database holds no code that could be redeemed. Codes written in
+plaintext by an older release are hashed in place on startup. During an overlapping
+rollout, a code an old instance issues after that step cannot be redeemed; the user
+simply starts the link again.
+
 Setting this server up (once, by whoever deploys it) still needs:
 
 1. Register this skill as an ordinary add-on on **your own**

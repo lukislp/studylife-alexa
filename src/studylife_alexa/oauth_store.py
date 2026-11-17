@@ -101,8 +101,9 @@ _TABLES_NEEDING_INSTANCE_URL_MIGRATION = (
 )
 
 
-# Tables whose `token` column is stored hashed - see token_hash.py.
-_HASHED_TOKEN_TABLES = ("access_tokens", "refresh_tokens")
+# Table -> key column stored hashed - see token_hash.py. The authorization codes are hashed
+# the same way as the tokens.
+_HASHED_KEY_COLUMNS = {"access_tokens": "token", "refresh_tokens": "token", "auth_codes": "code"}
 
 
 class OAuthStore:
@@ -134,22 +135,25 @@ class OAuthStore:
                 await db.execute(
                     "ALTER TABLE pending_auth ADD COLUMN pkce_verifier TEXT NOT NULL DEFAULT ''"
                 )
-            for table in _HASHED_TOKEN_TABLES:
-                await self._hash_legacy_tokens(db, table)
+            for table, column in _HASHED_KEY_COLUMNS.items():
+                await self._hash_legacy_keys(db, table, column)
             await db.commit()
 
     @staticmethod
-    async def _hash_legacy_tokens(db: aiosqlite.Connection, table: str) -> None:
-        """Audit 2026-11-16 L22: rows written before token hashing hold the bearer token
-        in plaintext. Rewrite them in place (hashed key, same payload) so every token
-        issued earlier keeps validating - the presented token is hashed at lookup - and
-        nobody is logged out. Idempotent: already-hashed rows are skipped, so it is safe
-        on every start and a no-op once the table is clean."""
-        cursor = await db.execute(f"SELECT token FROM {table}")
+    async def _hash_legacy_keys(db: aiosqlite.Connection, table: str, column: str) -> None:
+        """Audit 2026-11-16 L22: rows written before hashing hold the bearer token (or the
+        authorization code) in plaintext. Rewrite them in place (hashed key, same payload)
+        so every token and code issued earlier keeps validating - the presented value is
+        hashed at lookup - and nobody is logged out. Idempotent: already-hashed rows are
+        skipped, so it is safe on every start and a no-op once the table is clean. A code an
+        old instance writes after this ran (overlapping rollout) cannot redeem; the user
+        retries the link once - codes live five minutes, so that window is short."""
+        cursor = await db.execute(f"SELECT {column} FROM {table}")
         for (stored,) in await cursor.fetchall():
             if not is_hashed(stored):
                 await db.execute(
-                    f"UPDATE {table} SET token = ? WHERE token = ?", (hash_token(stored), stored)
+                    f"UPDATE {table} SET {column} = ? WHERE {column} = ?",
+                    (hash_token(stored), stored),
                 )
 
     # --- authorize() -> StudyLife connect flow round trip ---
@@ -213,7 +217,7 @@ class OAuthStore:
                 "INSERT OR REPLACE INTO auth_codes "
                 "(code, encrypted_api_key, studylife_instance_url, expires_at) VALUES (?, ?, ?, ?)",
                 (
-                    code,
+                    hash_token(code),
                     encrypted,
                     studylife_instance_url,
                     time.time() + AUTHORIZATION_CODE_TTL_SECONDS,
@@ -223,15 +227,17 @@ class OAuthStore:
 
     async def consume_authorization_code(self, code: str) -> LinkedAccount | None:
         """Single-use (RFC 6749 SS10.5) - deleted whether or not it turns out to still be
-        valid, so a replayed code can never succeed twice."""
+        valid, so a replayed code can never succeed twice. Stored and looked up as a hash
+        (token_hash.py), so a copy of the database holds no redeemable code."""
+        stored = hash_token(code)
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
                 "SELECT encrypted_api_key, studylife_instance_url, expires_at "
                 "FROM auth_codes WHERE code = ?",
-                (code,),
+                (stored,),
             )
             row = await cursor.fetchone()
-            await db.execute("DELETE FROM auth_codes WHERE code = ?", (code,))
+            await db.execute("DELETE FROM auth_codes WHERE code = ?", (stored,))
             await db.commit()
 
         if row is None:
