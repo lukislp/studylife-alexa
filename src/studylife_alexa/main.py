@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,6 +16,8 @@ from studylife_alexa.config import Settings
 from studylife_alexa.metrics import REQUEST_DURATION_SECONDS, REQUESTS_TOTAL, render_latest
 from studylife_alexa.oauth_provider import register_oauth_routes
 from studylife_alexa.oauth_store import OAuthStore
+from studylife_alexa.purge_routes import register_purge_routes
+from studylife_alexa.retention import run_retention_sweep
 from studylife_alexa.skill import build_skill
 
 _settings = Settings()  # type: ignore[call-arg]
@@ -32,7 +36,13 @@ _store = OAuthStore(_settings.alexa_oauth_db_path, _encryption_key)
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     await _store.initialize()
-    yield
+    sweep = asyncio.create_task(run_retention_sweep(_store))
+    try:
+        yield
+    finally:
+        sweep.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await sweep
 
 
 app = FastAPI(lifespan=_lifespan)
@@ -79,6 +89,7 @@ _webservice_handler = WebserviceSkillHandler(
 )
 
 register_oauth_routes(app, _store, _settings)
+register_purge_routes(app, _store, _settings)
 
 # Just the StudyLife app icon, for the instance-selection form's logo (oauth_provider.py) -
 # small enough that mounting a directory (rather than a single dedicated route) isn't

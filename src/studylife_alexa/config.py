@@ -61,3 +61,10 @@ class Settings(BaseSettings):
     # SQLite file for the account-linking OAuth store (oauth_store.py). Relative to the
     # working directory unless absolute; gitignored like .env.
     alexa_oauth_db_path: str = "oauth.db"
+
+    # Shared secret the StudyAtrium server presents (X-StudyLife-Shared-Secret) when it calls
+    # POST /internal/users/{id}/purge after an account deletion. Unset/empty = the purge route
+    # answers 503 (feature off, never open). Generate with
+    # `python -c "import secrets; print(secrets.token_urlsafe(32))"` and put the same value in
+    # the server's AddonPurge:Alexa:SharedSecret.
+    studylife_purge_secret: str | None = None

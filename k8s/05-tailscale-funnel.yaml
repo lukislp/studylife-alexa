@@ -25,6 +25,10 @@
 # operator-only, has no reason to be internet-facing, and stays reachable only via a
 # port-forward/exec if ever needed.
 #
+# /internal/* (the account-deletion purge route) must never be added to this allowlist: it is
+# reached only in-cluster from the studylife server pods (see allow-studylife-server-to-
+# studylife-alexa in k8s/04-network-policies.yaml).
+#
 # Bootstrap-only, NOT Flux-managed - same RBAC reasoning as k8s/00-namespace.yaml/
 # k8s/02-secret.yaml/k8s/04-network-policies.yaml (kustomize-controller's ClusterRole has no
 # permission on the networking.k8s.io Ingress resource at all).

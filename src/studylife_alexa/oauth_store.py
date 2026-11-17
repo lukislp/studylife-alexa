@@ -19,12 +19,13 @@ can never accidentally use one user's key against another user's instance.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 import time
 from dataclasses import dataclass
 
 import aiosqlite
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 
 from studylife_alexa.token_hash import hash_token, is_hashed
 
@@ -104,6 +105,11 @@ _TABLES_NEEDING_INSTANCE_URL_MIGRATION = (
 # Table -> key column stored hashed - see token_hash.py. The authorization codes are hashed
 # the same way as the tokens.
 _HASHED_KEY_COLUMNS = {"access_tokens": "token", "refresh_tokens": "token", "auth_codes": "code"}
+
+
+# Tables whose rows carry an encrypted StudyAtrium API key (so an account purge can find them)
+# and the rows' own expiry column.
+_KEY_BEARING_TABLES = ("auth_codes", "access_tokens", "refresh_tokens")
 
 
 class OAuthStore:
@@ -325,6 +331,56 @@ class OAuthStore:
         return LinkedAccount(
             api_key=self._fernet.decrypt(encrypted_api_key).decode(), base_url=instance_url
         )
+
+    # --- retention sweep + account deletion (GDPR Art. 5(1)(e) / Art. 17) ---
+
+    async def delete_expired(self) -> int:
+        """Delete expired authorization codes, access tokens and refresh tokens, and
+        pending authorizations older than their TTL (they hold no key, but also no reason
+        to outlive the connect flow). Without this nothing ever removed an access token
+        that was not presented again. One transaction; returns the number of rows removed."""
+        now = time.time()
+        deleted = 0
+        async with aiosqlite.connect(self._db_path) as db:
+            for table in _KEY_BEARING_TABLES:
+                cursor = await db.execute(f"DELETE FROM {table} WHERE expires_at < ?", (now,))
+                deleted += cursor.rowcount
+            cursor = await db.execute(
+                "DELETE FROM pending_auth WHERE created_at < ?", (now - PENDING_AUTH_TTL_SECONDS,)
+            )
+            deleted += cursor.rowcount
+            await db.commit()
+        return deleted
+
+    async def purge_by_key_hashes(self, key_hashes: frozenset[str]) -> int:
+        """Delete every code/token whose stored API key hashes (SHA-256 hex, the same digest
+        the StudyAtrium server computes) to one of `key_hashes`. This add-on stores no
+        StudyAtrium user id, so the key is the only link to a person. One transaction;
+        idempotent (a repeat call matches nothing). A row whose key cannot be decrypted
+        (encryption key rotated) cannot be matched and is left to the retention sweep."""
+        if not key_hashes:
+            return 0
+        deleted = 0
+        async with aiosqlite.connect(self._db_path) as db:
+            for table in _KEY_BEARING_TABLES:
+                cursor = await db.execute(f"SELECT rowid, encrypted_api_key FROM {table}")
+                matching = [
+                    rowid
+                    for rowid, encrypted in await cursor.fetchall()
+                    if self._key_hash(encrypted) in key_hashes
+                ]
+                for rowid in matching:
+                    await db.execute(f"DELETE FROM {table} WHERE rowid = ?", (rowid,))
+                deleted += len(matching)
+            await db.commit()
+        return deleted
+
+    def _key_hash(self, encrypted_api_key: bytes) -> str | None:
+        try:
+            api_key = self._fernet.decrypt(encrypted_api_key).decode()
+        except InvalidToken:
+            return None
+        return hashlib.sha256(api_key.encode()).hexdigest()
 
 
 def load_access_token_sync(db_path: str, encryption_key: str, token: str) -> LinkedAccount | None:

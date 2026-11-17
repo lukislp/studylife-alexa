@@ -135,6 +135,35 @@ redirects are not followed, the request times out after 5 s and the response is 
 hostnames to accept only those instances (unset = any public https host, so self-hosting
 works without configuration).
 
+## Account deletion (purge endpoint)
+
+When a StudyAtrium account is deleted, the server calls every add-on that holds data for that
+person. For this add-on:
+
+```
+POST /internal/users/{user_id}/purge
+X-StudyLife-Shared-Secret: <STUDYLIFE_PURGE_SECRET>
+{"key_hashes": ["<sha256 hex of an API key issued to this add-on>", ...]}
+```
+
+This add-on stores no StudyAtrium user id, only the encrypted API key per code/token, so it
+decrypts each stored key, hashes it (SHA-256) and deletes every authorization code, access token
+and refresh token whose hash is listed (one transaction, idempotent, `204` also when nothing
+matched). `key_hashes` holds at most 50 lowercase hex digests (`422` otherwise); a wrong or
+missing secret is `401`. Only counts are logged, never keys or hashes.
+
+| Variable | Purpose |
+|---|---|
+| `STUDYLIFE_PURGE_SECRET` | Shared secret for the route. Unset or empty = the route answers `503` (off, never open). Same value as the server's `AddonPurge:Alexa:SharedSecret`. |
+
+The route is not on the public Tailscale Funnel; a NetworkPolicy
+(`k8s/04-network-policies.yaml`) lets only the StudyAtrium server pods reach it. A StudyAtrium
+instance outside this cluster needs its own network path to this service's port to use it.
+
+An hourly background sweep additionally deletes expired authorization codes, access tokens and
+refresh tokens and stale pending authorizations, so no expired credential lingers (see
+[PRIVACY.md](PRIVACY.md#data-retention)).
+
 ## Deployment
 
 Self-hosted (K3s + Tailscale Funnel), same pattern as
