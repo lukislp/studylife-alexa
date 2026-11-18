@@ -1,4 +1,4 @@
-"""Outbound-request policy for the user-supplied StudyLife instance URL (audit
+"""Outbound-request policy for the user-supplied StudyAtrium instance URL (audit
 2026-11-16 L23).
 
 `/authorize` is public and, before redirecting a browser anywhere, makes this server
@@ -61,7 +61,7 @@ async def resolves_to_public_addresses_only(url: str) -> bool:
 
     Residual risk, accepted: the HTTP client resolves the name again when it connects,
     so a DNS-rebinding host could answer differently the second time. The response is
-    never shown to the caller (only "is this a StudyLife instance" comes back), so the
+    never shown to the caller (only "is this a StudyAtrium instance" comes back), so the
     exposure is a blind request, not a data leak."""
     parts = urlsplit(url)
     hostname = parts.hostname

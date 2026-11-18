@@ -1,4 +1,4 @@
-"""Typed HTTP client for StudyLife's REST API and the generic OAuth-client connect flow
+"""Typed HTTP client for StudyAtrium's REST API and the generic OAuth-client connect flow
 (identity-contract-v1 SS2, the same one studylife-cli/studylife-mcp's own client.py use) -
 scoped to exactly what this skill needs: the assertion exchange for account linking, and
 the read-only calls its intents make on the user's behalf.
@@ -14,17 +14,17 @@ from studylife_alexa.metrics import track_upstream
 
 CLIENT_ID = "studylife-alexa"
 
-# Every outbound call this module makes goes to whatever StudyLife instance the caller
+# Every outbound call this module makes goes to whatever StudyAtrium instance the caller
 # linked their account against - see metrics.py's own docstring for why this is still a
 # label rather than baked into the metric name.
 _UPSTREAM_TARGET = "studylife-api"
 
 
 class StudyLifeApiError(Exception):
-    """Raised for any non-2xx response from StudyLife, carrying the status and body."""
+    """Raised for any non-2xx response from StudyAtrium, carrying the status and body."""
 
     def __init__(self, status_code: int, body: str) -> None:
-        super().__init__(f"StudyLife API returned {status_code}: {body.strip()}")
+        super().__init__(f"StudyAtrium API returned {status_code}: {body.strip()}")
         self.status_code = status_code
         self.body = body
 
@@ -71,7 +71,7 @@ async def exchange_assertion(
 
 
 class StudyLifeClient:
-    """Talks to StudyLife on behalf of one already-linked user, using their own
+    """Talks to StudyAtrium on behalf of one already-linked user, using their own
     per-installation API key (X-Api-Key) - the same header every other add-on uses."""
 
     def __init__(self, base_url: str, api_key: str, timeout: float = 10.0) -> None:
@@ -107,7 +107,7 @@ class StudyLifeClient:
 def _sync_get(
     base_url: str, api_key: str, path: str, params: dict[str, object] | None = None
 ) -> httpx.Response:
-    """Shared plain-httpx GET for every *_sync StudyLife call below - see
+    """Shared plain-httpx GET for every *_sync StudyAtrium call below - see
     oauth_store.load_access_token_sync's docstring for why the skill-request path has to
     stay synchronous end to end (AsyncClient/StudyLifeClient above is for the FastAPI
     routes, which don't hit this restriction)."""

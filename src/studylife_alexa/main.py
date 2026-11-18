@@ -91,7 +91,7 @@ _webservice_handler = WebserviceSkillHandler(
 register_oauth_routes(app, _store, _settings)
 register_purge_routes(app, _store, _settings)
 
-# Just the StudyLife app icon, for the instance-selection form's logo (oauth_provider.py) -
+# Just the StudyAtrium app icon, for the instance-selection form's logo (oauth_provider.py) -
 # small enough that mounting a directory (rather than a single dedicated route) isn't
 # over-engineering it, and keeps the icon file itself out of the Python source.
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")

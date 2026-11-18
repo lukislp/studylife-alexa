@@ -1,4 +1,4 @@
-"""Request handlers for the StudyLife Alexa skill.
+"""Request handlers for the StudyAtrium Alexa skill.
 
 TestIntentHandler is Phase-A scaffolding (canned response, proved out the endpoint/
 signature-verification/deployment pipeline before any real functionality existed) -

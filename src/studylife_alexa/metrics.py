@@ -1,4 +1,4 @@
-"""Prometheus metrics for this service (part of the StudyLife telemetry rollout that
+"""Prometheus metrics for this service (part of the StudyAtrium telemetry rollout that
 already covers studylife-mcp/studylife-ai - same instrument shapes, renamed with this
 service's own prefix). Scraped by the existing self-hosted Prometheus (homelab-infra
 repo, monitoring/01-prometheus.yaml).
@@ -38,12 +38,12 @@ REQUESTS_TOTAL = Counter(
 )
 
 # target is always "studylife-api" today - every outbound call this service makes goes
-# to whatever StudyLife instance the caller linked their account against. Kept as a
+# to whatever StudyAtrium instance the caller linked their account against. Kept as a
 # label (rather than hardcoded into the metric name) for consistency with
 # studylife-mcp/studylife-ai's own upstream metrics.
 UPSTREAM_REQUESTS_TOTAL = Counter(
     "studylife_alexa_upstream_requests_total",
-    "Total outbound requests to StudyLife, by target and outcome.",
+    "Total outbound requests to StudyAtrium, by target and outcome.",
     ["target", "outcome"],
 )
 

@@ -1,6 +1,6 @@
 # The service itself. Image tag is a placeholder overwritten by Flux's
 # ImageUpdateAutomation (k8s/flux/04-image-update-automation.yaml) the moment it first
-# reconciles against a real published tag - mirrors every other StudyLife add-on's own
+# reconciles against a real published tag - mirrors every other StudyAtrium add-on's own
 # k8s/04-app.yaml. This repo's Dockerfile creates "appuser" with an explicit numeric
 # --uid 1000, so runAsNonRoot/runAsUser is safe here without live inspection.
 apiVersion: v1
@@ -12,7 +12,7 @@ spec:
   accessModes: ["ReadWriteOnce"]
   # Longhorn (cross-node-replicated, homelab-infra/cluster/11-longhorn-values.yaml)
   # instead of local-path - oauth.db (every issued access/refresh token, encrypted, and
-  # the underlying StudyLife API key) survives a node dying instead of needing a Velero
+  # the underlying StudyAtrium API key) survives a node dying instead of needing a Velero
   # restore.
   storageClassName: longhorn
   resources:
@@ -27,7 +27,7 @@ spec:
   replicas: 1
   strategy:
     # Single instance with an RWO volume - oauth.db is a plain SQLite file, not built
-    # for concurrent writers, same reasoning as every other StudyLife add-on's own
+    # for concurrent writers, same reasoning as every other StudyAtrium add-on's own
     # SQLite-backed service.
     type: Recreate
   selector:
@@ -37,7 +37,7 @@ spec:
       labels: {app: studylife-alexa}
       annotations:
         # Opt-in to homelab-infra's nightly Velero PVC backup: /app/data holds every
-        # linked user's encrypted StudyLife API key. Losing it means re-linking the
+        # linked user's encrypted StudyAtrium API key. Losing it means re-linking the
         # account in the Alexa app.
         backup.velero.io/backup-volumes: data
     spec:

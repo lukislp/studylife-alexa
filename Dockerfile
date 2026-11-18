@@ -17,7 +17,7 @@ RUN sed -i 's#http://deb.debian.org#https://deb.debian.org#' /etc/apt/sources.li
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# StudyLife's own server pins the same TZ (src/StudyLife.Server/Dockerfile) because every
+# StudyAtrium's own server pins the same TZ (src/StudyLife.Server/Dockerfile) because every
 # persisted StartTime/EndTime is a NAIVE local timestamp, not UTC (see studylife's
 # docs/ARCHITECTURE.md "Single-Timezone Invariant") - this container's own datetime.now()
 # calls (handlers.py's session-window filtering, elapsed-time clamping) must agree with
