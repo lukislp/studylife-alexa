@@ -18,7 +18,7 @@ venv/
 .env.*
 !.env.example
 
-# OAuth store (client registrations, tokens, encrypted StudyLife API keys)
+# OAuth store (client registrations, tokens, encrypted StudyAtrium API keys)
 oauth.db*
 tests/test_oauth.db*
 

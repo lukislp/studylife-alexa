@@ -1,4 +1,4 @@
-"""Account-linking OAuth wrapper around StudyLife's generic connect flow
+"""Account-linking OAuth wrapper around StudyAtrium's generic connect flow
 (identity-contract-v1 SS2). Alexa is treated as a single, fixed, pre-registered
 confidential client - no RFC 7591 dynamic registration, no PKCE, no per-client scoping -
 so this stays a plain, from-scratch Authorization Code Grant implementation rather than
@@ -64,7 +64,7 @@ from studylife_alexa.oauth_store import ACCESS_TOKEN_TTL_SECONDS, OAuthStore
 # metrics.py's own docstring for why it's still a label, not baked into the metric name.
 _UPSTREAM_TARGET = "studylife-api"
 
-# Mirrors StudyLife's own design system (studylife/src/StudyLife.Client/wwwroot/css/
+# Mirrors StudyAtrium's own design system (studylife/src/StudyLife.Client/wwwroot/css/
 # base.css) - same font, color tokens, and dark/light handling, so this account-linking
 # page doesn't look like a different product from the one it's connecting to.
 #
@@ -318,13 +318,13 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
                 "Check the address and try again.",
             )
 
-        # request_id doubles as the state StudyLife's connect flow echoes back on
+        # request_id doubles as the state StudyAtrium's connect flow echoes back on
         # /oauth/studylife/callback - Alexa's own state is stashed alongside it rather
-        # than round-tripped through StudyLife directly, so it can't be tampered with by
+        # than round-tripped through StudyAtrium directly, so it can't be tampered with by
         # anything in between.
         request_id = secrets.token_urlsafe(24)
         # PKCE (RFC 7636) towards StudyLife: the assertion travels back through the user's
-        # browser, and StudyLife only redeems it together with the verifier matching this
+        # browser, and StudyAtrium only redeems it together with the verifier matching this
         # challenge - the verifier never leaves this server (stashed with the pending row).
         code_verifier, code_challenge = _new_pkce_pair()
         await store.save_pending_authorization(

@@ -101,7 +101,7 @@ spec:
 #     - Request signature verification (ALEXA_VERIFY_REQUESTS=true, k8s/01-config.yaml)
 #       fetches Amazon's signing certificate chain from its published HTTPS URL on every
 #       cold signature check.
-#     - Account linking and every intent afterwards talk to whichever StudyLife instance the
+#     - Account linking and every intent afterwards talk to whichever StudyAtrium instance the
 #       user linked (oauth_provider._verify_instance_reachable, client.exchange_assertion and
 #       the read-only *_sync calls). That URL is user-supplied and only constrained to start
 #       with https:// - it is data, not a fixed host, so an IP allowlist is impossible here.
@@ -109,7 +109,7 @@ spec:
 #     api-egress makes. Note this means a self-hosted instance published on a non-standard
 #     HTTPS port (e.g. :8443) would not be reachable - that is the one deliberate narrowing.
 #  2. The studylife-web pods in studylife-scale, for the case where the linked instance is
-#     this cluster's own StudyLife. NetworkPolicy matches the POD port, not the Service port:
+#     this cluster's own StudyAtrium. NetworkPolicy matches the POD port, not the Service port:
 #     the studylife-web Service maps 443 -> 8443 and 80 -> 8080.
 #
 # DNS is covered by allow-dns above; kubelet probes are not subject to NetworkPolicy at all

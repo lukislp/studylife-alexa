@@ -1,4 +1,4 @@
-# Deliberately ONLY these files - NOT the rest of k8s/. Mirrors every other StudyLife add-on's
+# Deliberately ONLY these files - NOT the rest of k8s/. Mirrors every other StudyAtrium add-on's
 # own k8s/flux-deploy/kustomization.yaml scoping: kustomize-controller's least-privilege
 # ClusterRole (studylife repo's k8s/flux/06-reconciler-rbac.yaml) only grants permissions on
 # Deployments/ConfigMaps/Services - NOT Namespaces, Secrets, NetworkPolicies, or the Ingress

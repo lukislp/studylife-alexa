@@ -22,15 +22,15 @@ class Settings(BaseSettings):
     # --- Account linking (oauth_provider.py) - all optional, with no bearing on the
     # Phase A/B canned-response handlers, which never read them. Only required once a
     # StudyLife-backed intent needs get_account_linking_access_token(handler_input) to
-    # resolve to a real StudyLife API key.
+    # resolve to a real StudyAtrium API key.
 
     # This server's own public base URL (the Tailscale Funnel hostname) - authorize()
-    # needs it to build the callback URL StudyLife's connect flow redirects back to.
+    # needs it to build the callback URL StudyAtrium's connect flow redirects back to.
     alexa_public_url: AnyHttpUrl | None = None
 
     # Issued by this server, entered directly into the Alexa Developer Console's Account
     # Linking config (Client ID / Client Secret fields) - these authenticate Alexa's own
-    # backend to this server's /token endpoint, NOT a StudyLife credential. Generate with
+    # backend to this server's /token endpoint, NOT a StudyAtrium credential. Generate with
     # `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
     alexa_client_id: str | None = None
     alexa_client_secret: str | None = None
@@ -46,15 +46,15 @@ class Settings(BaseSettings):
     alexa_redirect_uris: str | None = None
 
     # Optional comma-separated hostnames (e.g. "studylife.example.org,study.example.net")
-    # that /authorize accepts as the user's StudyLife instance. Unset = any public https
+    # that /authorize accepts as the user's StudyAtrium instance. Unset = any public https
     # host (self-hosting keeps working); either way private, loopback and link-local
     # addresses are always refused (instance_guard.py).
     alexa_allowed_instance_hosts: str | None = None
 
     # Fernet key (32 url-safe base64-encoded bytes, e.g. via
     # `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`)
-    # encrypting the StudyLife API key at rest in oauth_store.py - this server needs the
-    # plaintext back to call StudyLife on the user's behalf, so hashing alone isn't an
+    # encrypting the StudyAtrium API key at rest in oauth_store.py - this server needs the
+    # plaintext back to call StudyAtrium on the user's behalf, so hashing alone isn't an
     # option here.
     alexa_token_encryption_key: str | None = None
 

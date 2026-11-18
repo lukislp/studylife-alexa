@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 """
 
-# How long a /authorize -> StudyLife connect flow round trip has to complete before the
+# How long a /authorize -> StudyAtrium connect flow round trip has to complete before the
 # pending request is discarded. Generous for a human logging in once.
 PENDING_AUTH_TTL_SECONDS = 600
 
@@ -73,14 +73,14 @@ class PendingAuthorization:
     alexa_state: str
     alexa_redirect_uri: str
     studylife_instance_url: str
-    # PKCE code_verifier for the StudyLife connect round trip - generated in authorize(),
+    # PKCE code_verifier for the StudyAtrium connect round trip - generated in authorize(),
     # stashed here (never sent through the browser) and presented at assertion-exchange.
     pkce_verifier: str
 
 
 @dataclass(frozen=True)
 class LinkedAccount:
-    """A StudyLife API key paired with the instance it belongs to - always read back
+    """A StudyAtrium API key paired with the instance it belongs to - always read back
     together (see module docstring) so a handler can never use one user's key against a
     different user's instance."""
 
@@ -124,7 +124,7 @@ class OAuthStore:
                 columns = {row[1] for row in await cursor.fetchall()}
                 if "studylife_instance_url" not in columns:
                     # Empty string, not a real URL - any pre-migration token used
-                    # after this runs fails at the StudyLife API call itself (an
+                    # after this runs fails at the StudyAtrium API call itself (an
                     # unhandled httpx.InvalidURL, caught by handlers.py's
                     # CatchAllExceptionHandler) rather than crashing this server, and
                     # self-resolves the moment the user re-links their account.
@@ -161,7 +161,7 @@ class OAuthStore:
                     (hash_token(stored), stored),
                 )
 
-    # --- authorize() -> StudyLife connect flow round trip ---
+    # --- authorize() -> StudyAtrium connect flow round trip ---
 
     async def save_pending_authorization(
         self,
