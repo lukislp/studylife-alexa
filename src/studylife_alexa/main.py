@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import mimetypes
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -91,9 +92,14 @@ _webservice_handler = WebserviceSkillHandler(
 register_oauth_routes(app, _store, _settings)
 register_purge_routes(app, _store, _settings)
 
-# Just the StudyAtrium app icon, for the instance-selection form's logo (oauth_provider.py) -
-# small enough that mounting a directory (rather than a single dedicated route) isn't
-# over-engineering it, and keeps the icon file itself out of the Python source.
+# The account-linking pages' own assets (oauth_provider.py): the StudyAtrium app icon and the
+# self-hosted DM Sans/DM Mono fonts. Small enough that mounting a directory (rather than
+# dedicated routes) isn't over-engineering it.
+#
+# The platform's MIME table decides the Content-Type StaticFiles sends; not every OS ships
+# woff2 in it, and browsers refuse a font served as application/octet-stream under nosniff.
+# Registered explicitly so the self-hosted fonts behave the same everywhere.
+mimetypes.add_type("font/woff2", ".woff2")
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
 
 

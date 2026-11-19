@@ -208,6 +208,13 @@ Distribution tab wants (link directly to the GitHub blob, e.g.
 needed, same pattern as [studylife-capture](https://github.com/lukislp/studylife-capture)'s
 own `PRIVACY.md`).
 
+The account-linking pages load no third-party resources: the DM Sans and DM Mono fonts are
+vendored as woff2 files under `src/studylife_alexa/static/fonts/` (SIL Open Font License 1.1,
+license texts alongside) and served by this app at `/static/fonts/`. Outside this server the
+skill only talks to the user's own StudyAtrium instance and, via the Alexa platform, Amazon -
+see [PRIVACY.md](PRIVACY.md#where-data-goes). The publisher is named in the imprint at
+<https://lktec.org/impressum>.
+
 ## License
 
 AGPL-3.0

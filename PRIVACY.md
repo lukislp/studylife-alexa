@@ -1,6 +1,6 @@
 # Privacy Policy for StudyAtrium (Alexa Skill)
 
-_Last updated: 2026-11-17_
+_Last updated: 2026-11-19_
 
 StudyAtrium is an Alexa Skill that lets you ask about your courses, focus timer, study time,
 study programs, goals, and notes on your own, self-hosted [StudyAtrium](https://github.com/lukislp/studylife)
@@ -32,12 +32,29 @@ to something you asked Alexa - never in the background, never on a schedule.
 
 ## Where data goes
 
-Every request this skill makes goes to exactly one place: the StudyAtrium instance URL you
-provided when linking your account. **This skill never sends your data to its developer, to
-Amazon beyond the standard Alexa Skills Kit request/response, or to any other third party.**
-There is no analytics, no telemetry, and no other server involved. The full source is public at
+This skill's server talks to the following parties, and only these:
+
+- **Your StudyAtrium instance** - the instance URL you provided when linking. Every data
+  request this skill makes on your behalf (courses, timer state, sessions, notes, and so on)
+  goes there, and the server also contacts it during linking to check that it is reachable and
+  to exchange the one-time login assertion for an API key. Before connecting, the server
+  resolves the instance's host name via DNS to make sure it points to a public address.
+- **Amazon (Alexa)** - the skill receives Alexa Skills Kit requests from Amazon and answers
+  them, so the spoken answer text passes back through Amazon's platform under Amazon's own
+  privacy practices. Amazon's backend also calls this server to exchange and refresh tokens.
+  During account linking your browser is redirected back to an Amazon Alexa address.
+
+The skill sends your data to no other third party: there is no analytics and no telemetry.
+Opening the account-linking page does not load anything from a third-party host either - its
+fonts (DM Sans and DM Mono, SIL Open Font License) and logo are served by this server itself, so
+your browser contacts only this server and your own instance during linking.
+
+Like any web service, the server (and the infrastructure it runs on) receives your IP address and
+the requested URL with each request, for example while you link your account, and its operator
+may keep ordinary access logs of that. The full source is public at
 [github.com/lukislp/studylife-alexa](https://github.com/lukislp/studylife-alexa) - every request
-this skill makes is visible in [`client.py`](src/studylife_alexa/client.py).
+this skill makes to a StudyAtrium instance is visible in
+[`client.py`](src/studylife_alexa/client.py).
 
 ## Data retention
 
@@ -71,7 +88,18 @@ grant when registering the skill as an add-on on your own StudyAtrium instance.
 Any change to this policy is made via a pull request to this repository, visible in its commit
 history like any other change.
 
+## Controller and publisher
+
+- **Controller:** the operator of the server that runs this skill - for a skill you use from
+  Alexa that was set up by someone else, that is whoever runs it; for your own deployment, that
+  is you. Your StudyAtrium instance is run by its own operator, who is responsible for the data
+  stored there.
+- **Publisher:** see the imprint at [lktec.org/impressum](https://lktec.org/impressum).
+
 ## Contact
 
-Questions or concerns: open an issue at
-[github.com/lukislp/studylife-alexa/issues](https://github.com/lukislp/studylife-alexa/issues).
+For privacy questions, including requests concerning your data, contact the operator of your
+instance or the publisher via the details in the
+[imprint](https://lktec.org/impressum). Please do not post personal data in public issues. Bugs
+and feature requests that contain no personal data can go to the
+[issue tracker](https://github.com/lukislp/studylife-alexa/issues).

@@ -74,11 +74,21 @@ _UPSTREAM_TARGET = "studylife-api"
 # both are needed together to stop the unwanted zoom-on-tap on a phone.
 _BASE_STYLE = """
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;1,9..40,400&display=swap"
-  rel="stylesheet">
 <style>
+  /* Self-hosted (SIL OFL 1.1, see /static/fonts/OFL-*.txt): opening this page never
+     contacts a third-party font host. */
+  @font-face {
+    font-family: 'DM Sans'; font-style: normal; font-weight: 400; font-display: swap;
+    src: url('/static/fonts/dm-sans-latin-400-normal.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'DM Sans'; font-style: normal; font-weight: 500; font-display: swap;
+    src: url('/static/fonts/dm-sans-latin-500-normal.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'DM Mono'; font-style: normal; font-weight: 400; font-display: swap;
+    src: url('/static/fonts/dm-mono-latin-400-normal.woff2') format('woff2');
+  }
   :root {
     color-scheme: dark light;
     --font: 'DM Sans', sans-serif;
