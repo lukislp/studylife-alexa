@@ -1,3 +1,4 @@
+import re
 from urllib.parse import parse_qs, urlparse
 
 import pytest
@@ -36,6 +37,44 @@ def test_static_icon_is_served(client) -> None:
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "image/png"
+
+
+def test_static_fonts_are_served_as_woff2(client) -> None:
+    for name in (
+        "dm-sans-latin-400-normal.woff2",
+        "dm-sans-latin-500-normal.woff2",
+        "dm-mono-latin-400-normal.woff2",
+    ):
+        response = client.get(f"/static/fonts/{name}")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "font/woff2"
+        assert response.content[:4] == b"wOF2"
+
+
+def test_font_license_texts_are_shipped(client) -> None:
+    for name in ("OFL-DM-Sans.txt", "OFL-DM-Mono.txt"):
+        response = client.get(f"/static/fonts/{name}")
+
+        assert response.status_code == 200
+        assert "SIL Open Font License" in response.text
+
+
+def test_pages_load_no_external_resources(client) -> None:
+    """GDPR: opening the account-linking pages must not make the browser contact a
+    third-party host (previously Google Fonts)."""
+    form = client.get("/authorize", params=_authorize_params()).text
+    error = client.get(
+        "/authorize", params=_authorize_params(instance_url="http://insecure.example")
+    ).text
+
+    for page in (form, error):
+        assert "fonts.googleapis.com" not in page
+        assert "fonts.gstatic.com" not in page
+        # Only attribute/url() references load anything; the placeholder text is not one.
+        assert not re.search(r"""(?:src|href|action)\s*=\s*["']?(?:https?:)?//""", page)
+        assert not re.search(r"""url\(\s*["']?(?:https?:)?//""", page)
+        assert "/static/fonts/dm-sans-latin-400-normal.woff2" in page
 
 
 def test_authorize_without_instance_url_shows_instance_form(client) -> None:
