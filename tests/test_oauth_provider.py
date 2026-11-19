@@ -76,6 +76,7 @@ def test_pages_load_no_external_resources(client) -> None:
         assert not re.search(r"""url\(\s*["']?(?:https?:)?//""", page)
         assert "/static/fonts/dm-sans-latin-400-normal.woff2" in page
 
+
 def test_authorize_without_instance_url_shows_instance_form(client) -> None:
     response = client.get("/authorize", params=_authorize_params(), follow_redirects=False)
 
