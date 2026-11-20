@@ -10,3 +10,4 @@ kind: Kustomization
 resources:
   - ../01-config.yaml
   - ../03-app.yaml
+  - ../06-tls-certificate.yaml

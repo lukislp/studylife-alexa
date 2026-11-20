@@ -68,3 +68,13 @@ class Settings(BaseSettings):
     # `python -c "import secrets; print(secrets.token_urlsafe(32))"` and put the same value in
     # the server's AddonPurge:Alexa:SharedSecret.
     studylife_purge_secret: str | None = None
+
+    # Optional HTTPS listener for the StudyAtrium -> studylife-alexa purge hop (tls.py, README
+    # "TLS"). With both files set the app is also served over HTTPS on the TLS port; only one
+    # of the two, or a certificate that cannot be loaded, stops the start. Unset (the default)
+    # keeps the plain HTTP port only, which StudyAtrium then reaches only through its explicit
+    # AddonPurge:<Addon>:AllowPlainHttp opt-in.
+    studylife_alexa_tls_cert_file: str | None = None
+    studylife_alexa_tls_key_file: str | None = None
+    studylife_alexa_tls_port: int = 8443
+    studylife_alexa_tls_reload_interval_seconds: float = 300.0

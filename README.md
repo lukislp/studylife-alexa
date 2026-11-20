@@ -180,6 +180,24 @@ An hourly background sweep additionally deletes expired authorization codes, acc
 refresh tokens and stale pending authorizations, so no expired credential lingers (see
 [PRIVACY.md](PRIVACY.md#data-retention)).
 
+### TLS
+
+The purge call carries the shared secret and the SHA-256 hashes of the user's API keys, so it should not cross the network in plain text. With both files set, [`tls.py`](src/studylife_alexa/tls.py) starts a second `uvicorn.Server` in the same process that serves the same app over HTTPS on `STUDYLIFE_ALEXA_TLS_PORT` (default `8443`), TLS 1.2 minimum. Only one file set, an unloadable certificate or a port that cannot be bound stops the start, so the service never runs without the TLS listener it was asked for. uvicorn does not reload certificates itself; `tls.py` checks the files periodically and loads a renewed pair into the running listener, so new handshakes use it without a restart. Port `8000` stays plain HTTP for the kubelet probes.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `STUDYLIFE_ALEXA_TLS_CERT_FILE` | *(unset)* | PEM certificate chain. Set together with the key file, or not at all. |
+| `STUDYLIFE_ALEXA_TLS_KEY_FILE` | *(unset)* | PEM private key. |
+| `STUDYLIFE_ALEXA_TLS_PORT` | `8443` | Port of the HTTPS listener. |
+| `STUDYLIFE_ALEXA_TLS_RELOAD_INTERVAL_SECONDS` | `300` | How often the files are checked for a renewed certificate. |
+
+Unset (the default), the add-on only serves plain HTTP, which a single-host Docker Compose setup on a private network keeps working with: StudyAtrium then reaches it over `http://` and logs a warning at startup. To encrypt the hop:
+
+1. Issue a certificate whose subject alternative names include the host name StudyAtrium uses in `AddonPurge__Alexa__BaseUrl` (for example the Compose service name `studylife-alexa`), signed by a CA of your own. In k3s this is the cert-manager `Certificate` in [`k8s/06-tls-certificate.yaml`](k8s/06-tls-certificate.yaml), issued by StudyAtrium's internal CA.
+2. Mount the certificate and key into the container and set the two `STUDYLIFE_ALEXA_TLS_*_FILE` variables.
+3. Give StudyAtrium the CA certificate (`AddonTls__CaCertificatePath`) and switch the URL to `AddonPurge__Alexa__BaseUrl=https://studylife-alexa:8443`. StudyAtrium validates the chain and the host name; there is no setting that turns the validation off. Once every add-on serves TLS, `AddonTls__RequireHttps=true` makes StudyAtrium refuse any `http://` add-on URL.
+
+Rollout in k3s, in this order: (1) merge and release this repository (Certificate, port and TLS variables through Flux; the listener starts with the release image); (2) apply the updated `k8s/04-network-policies.yaml` by hand (it only adds `8443` and is not Flux-managed); (3) StudyAtrium's switch of `AddonPurge__Alexa__BaseUrl` to `https://studylife-alexa.studylife-alexa.svc.cluster.local:8443` and the removal of `AddonPurge__Alexa__AllowPlainHttp` (StudyAtrium repository). Purges that fail in between stay in StudyAtrium's outbox and are retried, never dropped.
 ## Deployment
 
 Self-hosted (K3s + Tailscale Funnel), same pattern as
