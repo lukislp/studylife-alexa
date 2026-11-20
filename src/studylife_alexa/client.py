@@ -70,6 +70,43 @@ async def exchange_assertion(
         return None
 
 
+class KeyOwner:
+    """Outcome of asking the instance who a stored API key belongs to."""
+
+    __slots__ = ("rejected", "user_id")
+
+    def __init__(self, user_id: int | None = None, rejected: bool = False) -> None:
+        self.user_id = user_id
+        self.rejected = rejected
+
+
+async def whoami(base_url: str, api_key: str) -> KeyOwner:
+    """`GET /api/auth/whoami` with the key (identity contract v1): the real user id behind
+    it. `rejected` is True only when the instance answers 401, meaning the key is revoked
+    or its account is gone. Every other failure (outage, timeout, odd answer) is neither a
+    user id nor a rejection: the caller keeps the link and asks again next time."""
+    try:
+        async with (
+            httpx.AsyncClient(timeout=10.0) as http,
+            track_upstream(_UPSTREAM_TARGET) as call,
+        ):
+            response = await http.get(
+                f"{base_url.rstrip('/')}/api/auth/whoami", headers={"X-Api-Key": api_key}
+            )
+            if response.status_code >= 400:
+                call.outcome = "http_error"
+    except (httpx.HTTPError, ValueError):
+        return KeyOwner()
+    if response.status_code == 401:
+        return KeyOwner(rejected=True)
+    if response.status_code != 200:
+        return KeyOwner()
+    try:
+        return KeyOwner(user_id=int(response.json()["userId"]))
+    except (KeyError, TypeError, ValueError):
+        return KeyOwner()
+
+
 class StudyLifeClient:
     """Talks to StudyAtrium on behalf of one already-linked user, using their own
     per-installation API key (X-Api-Key) - the same header every other add-on uses."""

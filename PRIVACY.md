@@ -72,8 +72,13 @@ this skill makes to a StudyAtrium instance is visible in
   immediately; the stored records are then removed when they expire, within 90 days at the latest.
 - **Deleting your StudyAtrium account** also removes this skill's records for you right away:
   your StudyAtrium server tells this add-on to delete every code and token that holds one of
-  your API keys. This works when your instance is configured to send that request; if it is not,
-  or the add-on is unreachable at that moment, the records still disappear on expiry as above.
+  your API keys or that is stored under your StudyAtrium user id on that instance (so also when
+  you revoked the key earlier). The user id is stored with each link. This works when your
+  instance is configured to send that request; if it is not, or the add-on is unreachable at that
+  moment, the records still disappear on expiry as above. Links made before the user id was
+  stored get it the next time Alexa renews them; one that is never renewed again is matched by
+  key only and otherwise removed on expiry. When StudyAtrium reports a stored key as revoked
+  (HTTP 401), this add-on deletes the records that hold it instead of renewing them.
   The API key itself is revoked with your account, so it is unusable either way.
 
 ## Permissions

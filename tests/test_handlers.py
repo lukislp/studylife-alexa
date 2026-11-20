@@ -169,6 +169,35 @@ async def test_timer_status_intent_unreachable(monkeypatch: pytest.MonkeyPatch) 
     assert DeStrings.UNREACHABLE in _speech(body)
 
 
+async def test_rejected_key_drops_the_link_and_asks_to_link_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """StudyAtrium answers 401 for a revoked key: the rows that hold it go (account deletion
+    could no longer find them by key) and the user is sent to link again, not told the
+    server is unreachable."""
+    from studylife_alexa.client import StudyLifeApiError
+
+    await _link_account("timer-token-revoked", "revoked-api-key")
+    await _link_account("timer-token-other", "other-api-key")
+
+    def _raise(base_url: str, api_key: str) -> dict:
+        raise StudyLifeApiError(401, "unauthorized")
+
+    monkeypatch.setattr(handlers, "get_timer_state_sync", _raise)
+
+    body = _invoke("TimerStatusIntent", access_token="timer-token-revoked")
+
+    assert DeStrings.EXPIRED_LINK in _speech(body)
+    assert body["response"]["card"]["type"] == "LinkAccount"
+    from studylife_alexa.config import Settings
+    from studylife_alexa.oauth_store import load_access_token_sync
+
+    settings = Settings()  # type: ignore[call-arg]
+    key = settings.alexa_token_encryption_key or ""
+    assert load_access_token_sync(settings.alexa_oauth_db_path, key, "timer-token-revoked") is None
+    assert load_access_token_sync(settings.alexa_oauth_db_path, key, "timer-token-other")
+
+
 # ---------------------------------------------------------------------------
 # StudyTimeIntent
 # ---------------------------------------------------------------------------

@@ -2,7 +2,9 @@
 
 When a StudyAtrium account is deleted, the server calls
 `POST /internal/users/{user_id}/purge` with the SHA-256 hashes of the API keys it issued to
-this add-on for that user. The route is secret-protected, answers 503 while no secret is
+this add-on for that user (possibly none: the user may have revoked the key earlier) and,
+when it knows it, its own public origin. Rows are matched by key hash and by user id on that
+instance. The route is secret-protected, answers 503 while no secret is
 configured, and is never exposed on the public Funnel (k8s/05-tailscale-funnel.yaml). The
 deletion itself lives in OAuthStore.purge_by_key_hashes; this module only handles HTTP.
 """
@@ -28,6 +30,10 @@ _SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 class PurgeRequest(BaseModel):
     key_hashes: Annotated[list[str], Field(max_length=MAX_KEY_HASHES)] = []
+    # The calling StudyAtrium server's public origin. With it the user id in the path also
+    # matches (the key may be revoked and its hash gone); without it only key hashes match,
+    # because a user id means nothing across instances. Older servers do not send it.
+    instance_url: Annotated[str | None, Field(max_length=2048)] = None
 
     @field_validator("key_hashes")
     @classmethod
@@ -52,6 +58,8 @@ def register_purge_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
         ):
             raise HTTPException(status_code=401, detail="unauthorized")
 
-        deleted = await store.purge_by_key_hashes(frozenset(body.key_hashes))
+        deleted = await store.purge_by_key_hashes(
+            frozenset(body.key_hashes), user_id=user_id, instance_url=body.instance_url
+        )
         logger.info("account purge user_id=%s deleted_rows=%s", user_id, deleted)
         return Response(status_code=204)
