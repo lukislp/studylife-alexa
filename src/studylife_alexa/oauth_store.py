@@ -15,13 +15,24 @@ carry it - so a later handler request can be routed to the right instance, not a
 globally-configured one. Not encrypted (it's the user's own server address, not a
 credential), but always read back paired with the api_key via LinkedAccount so callers
 can never accidentally use one user's key against another user's instance.
+
+Account deletion (GDPR Art. 17): the three key-bearing tables also carry the StudyAtrium
+user id (`studylife_user_id`, NULL until known). The purge call from the StudyAtrium server
+names the user id and its own instance, so rows are found by (user id, instance) even after
+the user revoked the key earlier and the key hash can no longer be sent. New links get the
+id from the assertion exchange; rows from before this column learn it the next time their
+refresh token is used (oauth_provider.py asks the instance who owns the key). A legacy row
+that is never refreshed again keeps a NULL id until the retention sweep removes it at its
+expiry (at most 90 days after its last refresh), and is matched by key hash in the meantime.
 """
 
 from __future__ import annotations
 
+import hmac
 import sqlite3
 import time
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 import aiosqlite
 from cryptography.fernet import Fernet, InvalidToken
@@ -41,18 +52,21 @@ CREATE TABLE IF NOT EXISTS auth_codes (
     code TEXT PRIMARY KEY,
     encrypted_api_key BLOB NOT NULL,
     studylife_instance_url TEXT NOT NULL,
+    studylife_user_id INTEGER,
     expires_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS access_tokens (
     token TEXT PRIMARY KEY,
     encrypted_api_key BLOB NOT NULL,
     studylife_instance_url TEXT NOT NULL,
+    studylife_user_id INTEGER,
     expires_at REAL NOT NULL
 );
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     token TEXT PRIMARY KEY,
     encrypted_api_key BLOB NOT NULL,
     studylife_instance_url TEXT NOT NULL,
+    studylife_user_id INTEGER,
     expires_at REAL NOT NULL
 );
 """
@@ -86,6 +100,27 @@ class LinkedAccount:
 
     api_key: str
     base_url: str
+    # The StudyAtrium user the key belongs to; None for a row from before the id was stored
+    # (see the module docstring).
+    user_id: int | None = None
+
+
+def normalize_instance(url: str) -> str:
+    """The origin of an instance URL (scheme://host[:port], lowercase, default port dropped),
+    so `https://Study.example/` and `https://study.example:443` compare equal. A value
+    that cannot be parsed normalizes to '' and matches nothing."""
+    try:
+        parts = urlsplit(url.strip())
+        host = (parts.hostname or "").lower()
+        port = parts.port
+    except ValueError:
+        return ""
+    scheme = parts.scheme.lower()
+    if not scheme or not host:
+        return ""
+    if port is not None and port != {"https": 443, "http": 80}.get(scheme):
+        return f"{scheme}://{host}:{port}"
+    return f"{scheme}://{host}"
 
 
 # Tables that existed before the multi-tenant migration and therefore might be
@@ -132,6 +167,12 @@ class OAuthStore:
                         f"ALTER TABLE {table} ADD COLUMN studylife_instance_url "
                         "TEXT NOT NULL DEFAULT ''"
                     )
+            # Account deletion: the StudyAtrium user id next to each key. NULL for a row written
+            # before this column existed; it is filled in when the refresh token is next used.
+            for table in _KEY_BEARING_TABLES:
+                cursor = await db.execute(f"PRAGMA table_info({table})")
+                if "studylife_user_id" not in {row[1] for row in await cursor.fetchall()}:
+                    await db.execute(f"ALTER TABLE {table} ADD COLUMN studylife_user_id INTEGER")
             # PKCE (2026-09-11): same in-place upgrade shape for the verifier column. A pending
             # authorization from before the upgrade simply carries '' and fails the exchange,
             # which the user resolves by restarting the link from the Alexa app.
@@ -214,17 +255,23 @@ class OAuthStore:
     # --- authorization code -> token exchange ---
 
     async def save_authorization_code(
-        self, code: str, studylife_api_key: str, studylife_instance_url: str
+        self,
+        code: str,
+        studylife_api_key: str,
+        studylife_instance_url: str,
+        studylife_user_id: int | None = None,
     ) -> None:
         encrypted = self._fernet.encrypt(studylife_api_key.encode())
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO auth_codes "
-                "(code, encrypted_api_key, studylife_instance_url, expires_at) VALUES (?, ?, ?, ?)",
+                "(code, encrypted_api_key, studylife_instance_url, studylife_user_id, expires_at) "
+                "VALUES (?, ?, ?, ?, ?)",
                 (
                     hash_token(code),
                     encrypted,
                     studylife_instance_url,
+                    studylife_user_id,
                     time.time() + AUTHORIZATION_CODE_TTL_SECONDS,
                 ),
             )
@@ -237,38 +284,35 @@ class OAuthStore:
         stored = hash_token(code)
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT encrypted_api_key, studylife_instance_url, expires_at "
+                "SELECT encrypted_api_key, studylife_instance_url, studylife_user_id, expires_at "
                 "FROM auth_codes WHERE code = ?",
                 (stored,),
             )
             row = await cursor.fetchone()
             await db.execute("DELETE FROM auth_codes WHERE code = ?", (stored,))
             await db.commit()
-
-        if row is None:
-            return None
-        encrypted_api_key, instance_url, expires_at = row
-        if expires_at < time.time():
-            return None
-        return LinkedAccount(
-            api_key=self._fernet.decrypt(encrypted_api_key).decode(), base_url=instance_url
-        )
+        return self._linked(row)
 
     # --- access / refresh tokens ---
 
     async def save_access_token(
-        self, token: str, studylife_api_key: str, studylife_instance_url: str
+        self,
+        token: str,
+        studylife_api_key: str,
+        studylife_instance_url: str,
+        studylife_user_id: int | None = None,
     ) -> None:
         encrypted = self._fernet.encrypt(studylife_api_key.encode())
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO access_tokens "
-                "(token, encrypted_api_key, studylife_instance_url, expires_at) "
-                "VALUES (?, ?, ?, ?)",
+                "(token, encrypted_api_key, studylife_instance_url, studylife_user_id, "
+                "expires_at) VALUES (?, ?, ?, ?, ?)",
                 (
                     hash_token(token),
                     encrypted,
                     studylife_instance_url,
+                    studylife_user_id,
                     time.time() + ACCESS_TOKEN_TTL_SECONDS,
                 ),
             )
@@ -277,34 +321,31 @@ class OAuthStore:
     async def load_access_token(self, token: str) -> LinkedAccount | None:
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT encrypted_api_key, studylife_instance_url, expires_at "
+                "SELECT encrypted_api_key, studylife_instance_url, studylife_user_id, expires_at "
                 "FROM access_tokens WHERE token = ?",
                 (hash_token(token),),
             )
             row = await cursor.fetchone()
-
-        if row is None:
-            return None
-        encrypted_api_key, instance_url, expires_at = row
-        if expires_at < time.time():
-            return None
-        return LinkedAccount(
-            api_key=self._fernet.decrypt(encrypted_api_key).decode(), base_url=instance_url
-        )
+        return self._linked(row)
 
     async def save_refresh_token(
-        self, token: str, studylife_api_key: str, studylife_instance_url: str
+        self,
+        token: str,
+        studylife_api_key: str,
+        studylife_instance_url: str,
+        studylife_user_id: int | None = None,
     ) -> None:
         encrypted = self._fernet.encrypt(studylife_api_key.encode())
         async with aiosqlite.connect(self._db_path) as db:
             await db.execute(
                 "INSERT OR REPLACE INTO refresh_tokens "
-                "(token, encrypted_api_key, studylife_instance_url, expires_at) "
-                "VALUES (?, ?, ?, ?)",
+                "(token, encrypted_api_key, studylife_instance_url, studylife_user_id, "
+                "expires_at) VALUES (?, ?, ?, ?, ?)",
                 (
                     hash_token(token),
                     encrypted,
                     studylife_instance_url,
+                    studylife_user_id,
                     time.time() + REFRESH_TOKEN_TTL_SECONDS,
                 ),
             )
@@ -314,21 +355,25 @@ class OAuthStore:
         """Rotate on use: the old refresh token stops working the moment it's exchanged."""
         async with aiosqlite.connect(self._db_path) as db:
             cursor = await db.execute(
-                "SELECT encrypted_api_key, studylife_instance_url, expires_at "
+                "SELECT encrypted_api_key, studylife_instance_url, studylife_user_id, expires_at "
                 "FROM refresh_tokens WHERE token = ?",
                 (hash_token(token),),
             )
             row = await cursor.fetchone()
             await db.execute("DELETE FROM refresh_tokens WHERE token = ?", (hash_token(token),))
             await db.commit()
+        return self._linked(row)
 
+    def _linked(self, row: tuple | None) -> LinkedAccount | None:
         if row is None:
             return None
-        encrypted_api_key, instance_url, expires_at = row
+        encrypted_api_key, instance_url, user_id, expires_at = row
         if expires_at < time.time():
             return None
         return LinkedAccount(
-            api_key=self._fernet.decrypt(encrypted_api_key).decode(), base_url=instance_url
+            api_key=self._fernet.decrypt(encrypted_api_key).decode(),
+            base_url=instance_url,
+            user_id=user_id,
         )
 
     # --- retention sweep + account deletion (GDPR Art. 5(1)(e) / Art. 17) ---
@@ -351,22 +396,38 @@ class OAuthStore:
             await db.commit()
         return deleted
 
-    async def purge_by_key_hashes(self, key_hashes: frozenset[str]) -> int:
-        """Delete every code/token whose stored API key hashes (SHA-256 hex, the same digest
-        the StudyAtrium server computes) to one of `key_hashes`. This add-on stores no
-        StudyAtrium user id, so the key is the only link to a person. One transaction;
-        idempotent (a repeat call matches nothing). A row whose key cannot be decrypted
-        (encryption key rotated) cannot be matched and is left to the retention sweep."""
-        if not key_hashes:
+    async def purge_by_key_hashes(
+        self,
+        key_hashes: frozenset[str],
+        *,
+        user_id: int | None = None,
+        instance_url: str | None = None,
+    ) -> int:
+        """Delete every code/token that belongs to a deleted account. A row matches when
+        its stored API key hashes (SHA-256 hex, the digest the StudyAtrium server computes)
+        to one of `key_hashes`, or when it carries `user_id` for the instance `instance_url`
+        (compared as origins). The second match is what reaches a link whose key the user
+        revoked before deleting the account, which the key hash alone never could. Without
+        an instance URL only the key hash matches: a user id is unique per instance, not
+        across instances. One transaction; idempotent (a repeat call matches nothing). A
+        row whose key cannot be decrypted (encryption key rotated) still matches by user
+        id; without one it is left to the retention sweep."""
+        by_user = user_id is not None and bool(normalize_instance(instance_url or ""))
+        if not key_hashes and not by_user:
             return 0
         deleted = 0
         async with aiosqlite.connect(self._db_path) as db:
             for table in _KEY_BEARING_TABLES:
-                cursor = await db.execute(f"SELECT rowid, encrypted_api_key FROM {table}")
+                cursor = await db.execute(
+                    f"SELECT rowid, encrypted_api_key, studylife_instance_url, studylife_user_id "
+                    f"FROM {table}"
+                )
                 matching = [
                     rowid
-                    for rowid, encrypted in await cursor.fetchall()
-                    if self._key_hash(encrypted) in key_hashes
+                    for rowid, encrypted, instance, row_user in await cursor.fetchall()
+                    if self._matches(
+                        encrypted, instance, row_user, key_hashes, user_id, instance_url
+                    )
                 ]
                 for rowid in matching:
                     await db.execute(f"DELETE FROM {table} WHERE rowid = ?", (rowid,))
@@ -374,12 +435,109 @@ class OAuthStore:
             await db.commit()
         return deleted
 
+    async def purge_by_api_key(self, api_key: str) -> int:
+        """Drop every row holding this API key: StudyAtrium answered 401 for it, so the
+        key is revoked or its account is gone and the rows could only be renewed in vain."""
+        deleted = 0
+        async with aiosqlite.connect(self._db_path) as db:
+            for table in _KEY_BEARING_TABLES:
+                cursor = await db.execute(f"SELECT rowid, encrypted_api_key FROM {table}")
+                holding = [
+                    rowid
+                    for rowid, encrypted in await cursor.fetchall()
+                    if _holds_key(self._fernet, encrypted, api_key)
+                ]
+                for rowid in holding:
+                    await db.execute(f"DELETE FROM {table} WHERE rowid = ?", (rowid,))
+                deleted += len(holding)
+            await db.commit()
+        return deleted
+
+    async def learn_user_id(self, api_key: str, user_id: int) -> None:
+        """Backfill for rows written before the user id was stored: record it on every row
+        of this API key that still has none."""
+        async with aiosqlite.connect(self._db_path) as db:
+            for table in _KEY_BEARING_TABLES:
+                cursor = await db.execute(
+                    f"SELECT rowid, encrypted_api_key FROM {table} WHERE studylife_user_id IS NULL"
+                )
+                for rowid, encrypted in await cursor.fetchall():
+                    if _holds_key(self._fernet, encrypted, api_key):
+                        await db.execute(
+                            f"UPDATE {table} SET studylife_user_id = ? WHERE rowid = ?",
+                            (user_id, rowid),
+                        )
+            await db.commit()
+
+    def _matches(
+        self,
+        encrypted_api_key: bytes,
+        row_instance: str,
+        row_user: int | None,
+        key_hashes: frozenset[str],
+        user_id: int | None,
+        instance_url: str | None,
+    ) -> bool:
+        return _row_matches(
+            self._key_hash(encrypted_api_key),
+            row_instance,
+            row_user,
+            key_hashes,
+            user_id,
+            instance_url,
+        )
+
     def _key_hash(self, encrypted_api_key: bytes) -> str | None:
-        try:
-            issued_token = self._fernet.decrypt(encrypted_api_key).decode()
-        except InvalidToken:
-            return None
-        return token_fingerprint(issued_token)
+        return _key_hash(self._fernet, encrypted_api_key)
+
+
+def _key_hash(fernet: Fernet, encrypted_api_key: bytes) -> str | None:
+    try:
+        issued_token = fernet.decrypt(encrypted_api_key).decode()
+    except InvalidToken:
+        return None
+    return token_fingerprint(issued_token)
+
+
+def _holds_key(fernet: Fernet, encrypted_api_key: bytes, api_key: str) -> bool:
+    """True when the encrypted value is exactly `api_key` (an undecryptable one never is)."""
+    try:
+        stored = fernet.decrypt(encrypted_api_key).decode()
+    except InvalidToken:
+        return False
+    return hmac.compare_digest(stored.encode(), api_key.encode())
+
+
+def _row_matches(
+    row_key_hash: str | None,
+    row_instance: str,
+    row_user: int | None,
+    key_hashes: frozenset[str],
+    user_id: int | None,
+    instance_url: str | None,
+) -> bool:
+    if row_key_hash is not None and row_key_hash in key_hashes:
+        return True
+    if user_id is None or row_user != user_id or not instance_url:
+        return False
+    wanted = normalize_instance(instance_url)
+    return bool(wanted) and normalize_instance(row_instance) == wanted
+
+
+def purge_by_api_key_sync(db_path: str, encryption_key: str, api_key: str) -> int:
+    """Plain sqlite3 counterpart of OAuthStore.purge_by_api_key for the skill-request path
+    (see load_access_token_sync for why that path is synchronous): the Alexa handler saw a
+    401 from StudyAtrium for this key and drops what holds it."""
+    fernet = Fernet(encryption_key.encode())
+    deleted = 0
+    with sqlite3.connect(db_path) as db:
+        for table in _KEY_BEARING_TABLES:
+            rows = db.execute(f"SELECT rowid, encrypted_api_key FROM {table}").fetchall()
+            for rowid, encrypted in rows:
+                if _holds_key(fernet, encrypted, api_key):
+                    db.execute(f"DELETE FROM {table} WHERE rowid = ?", (rowid,))
+                    deleted += 1
+    return deleted
 
 
 def load_access_token_sync(db_path: str, encryption_key: str, token: str) -> LinkedAccount | None:
@@ -392,15 +550,15 @@ def load_access_token_sync(db_path: str, encryption_key: str, token: str) -> Lin
     natively, and this path never writes."""
     with sqlite3.connect(db_path) as db:
         row = db.execute(
-            "SELECT encrypted_api_key, studylife_instance_url, expires_at "
+            "SELECT encrypted_api_key, studylife_instance_url, studylife_user_id, expires_at "
             "FROM access_tokens WHERE token = ?",
             (hash_token(token),),
         ).fetchone()
 
     if row is None:
         return None
-    encrypted_api_key, instance_url, expires_at = row
+    encrypted_api_key, instance_url, user_id, expires_at = row
     if expires_at < time.time():
         return None
     api_key = Fernet(encryption_key.encode()).decrypt(encrypted_api_key).decode()
-    return LinkedAccount(api_key=api_key, base_url=instance_url)
+    return LinkedAccount(api_key=api_key, base_url=instance_url, user_id=user_id)
