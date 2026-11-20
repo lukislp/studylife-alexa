@@ -182,6 +182,7 @@ async def tls_listener(
     try:
         for server in servers:
             tasks.append(await start_tls_server(server))
+            logger.info("HTTPS listener for the purge hop on port %d", bound_port(server))
         watcher = asyncio.create_task(watch_certificates(servers, files, reload_interval_seconds))
         yield servers
     finally:
