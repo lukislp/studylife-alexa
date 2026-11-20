@@ -47,7 +47,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.datastructures import FormData
 
-from studylife_alexa.client import CLIENT_ID, exchange_assertion
+from studylife_alexa.client import CLIENT_ID, exchange_assertion, whoami
 from studylife_alexa.config import Settings
 from studylife_alexa.instance_guard import (
     MAX_RESPONSE_BYTES,
@@ -385,7 +385,9 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
             )
 
         code = secrets.token_urlsafe(32)
-        await store.save_authorization_code(code, exchanged.api_key, pending.studylife_instance_url)
+        await store.save_authorization_code(
+            code, exchanged.api_key, pending.studylife_instance_url, exchanged.user_id
+        )
 
         redirect_url = (
             f"{pending.alexa_redirect_uri}?"
@@ -414,10 +416,25 @@ def register_oauth_routes(app: FastAPI, store: OAuthStore, settings: Settings) -
         if linked is None:
             return JSONResponse({"error": "invalid_grant"}, status_code=400)
 
+        user_id = linked.user_id
+        if grant_type == "refresh_token" and linked.base_url:
+            # A renewal is the moment to check the key still lives: StudyAtrium answers 401
+            # for a revoked key or a deleted account, and renewing such a link for another
+            # 90 days would keep a dead credential at rest. The same call tells a row from
+            # before the user id was stored whose account it is.
+            owner = await whoami(linked.base_url, linked.api_key)
+            if owner.rejected:
+                await store.purge_by_api_key(linked.api_key)
+                return JSONResponse({"error": "invalid_grant"}, status_code=400)
+            if owner.user_id is not None:
+                user_id = owner.user_id
+                if linked.user_id is None:
+                    await store.learn_user_id(linked.api_key, owner.user_id)
+
         access_token = secrets.token_urlsafe(32)
         refresh_token = secrets.token_urlsafe(32)
-        await store.save_access_token(access_token, linked.api_key, linked.base_url)
-        await store.save_refresh_token(refresh_token, linked.api_key, linked.base_url)
+        await store.save_access_token(access_token, linked.api_key, linked.base_url, user_id)
+        await store.save_refresh_token(refresh_token, linked.api_key, linked.base_url, user_id)
 
         return JSONResponse(
             {

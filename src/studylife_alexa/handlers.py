@@ -44,7 +44,11 @@ from studylife_alexa.client import (
 )
 from studylife_alexa.config import Settings
 from studylife_alexa.intent_tracking import record_intent_error
-from studylife_alexa.oauth_store import LinkedAccount, load_access_token_sync
+from studylife_alexa.oauth_store import (
+    LinkedAccount,
+    load_access_token_sync,
+    purge_by_api_key_sync,
+)
 from studylife_alexa.strings import _Strings, get_strings, period_for_time_period
 
 
@@ -104,6 +108,25 @@ def _unreachable_response(handler_input: HandlerInput, strings: type[_Strings]) 
     return _answer(handler_input, strings.UNREACHABLE, strings)
 
 
+def _api_failure_response(
+    handler_input: HandlerInput,
+    strings: type[_Strings],
+    linked: LinkedAccount,
+    error: StudyLifeApiError,
+) -> Response:
+    """A failed StudyAtrium call. A 401 means the key is revoked or its account is gone: the
+    rows that hold it are dropped (it could only ever fail again, and the user's data should
+    not sit here after they revoked access) and the user is asked to link again. Anything
+    else is an outage on the instance's side and changes nothing."""
+    if error.status_code == 401:
+        settings = Settings()  # type: ignore[call-arg]
+        purge_by_api_key_sync(
+            settings.alexa_oauth_db_path, settings.alexa_token_encryption_key or "", linked.api_key
+        )
+        return _link_account_response(handler_input, strings.EXPIRED_LINK)
+    return _unreachable_response(handler_input, strings)
+
+
 class LaunchRequestHandler(AbstractRequestHandler):
     def can_handle(self, handler_input: HandlerInput) -> bool:
         return is_request_type("LaunchRequest")(handler_input)
@@ -136,8 +159,8 @@ class CoursesIntentHandler(AbstractRequestHandler):
 
         try:
             courses = list_courses_sync(linked.base_url, linked.api_key)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         speech = strings.COURSES_NONE if not courses else strings.courses_count(len(courses))
         return _answer(handler_input, speech, strings)
@@ -156,8 +179,8 @@ class TimerStatusIntentHandler(AbstractRequestHandler):
 
         try:
             state = get_timer_state_sync(linked.base_url, linked.api_key)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         if not state.get("isRunning"):
             speech = strings.TIMER_NOT_RUNNING
@@ -243,8 +266,8 @@ class StudyTimeIntentHandler(AbstractRequestHandler):
             sessions = get_session_history_sync(
                 linked.base_url, linked.api_key, fetch_days, only_completed=False
             )
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         sessions = _filter_sessions_by_window(sessions, start_days_ago, end_days_ago)
         minutes = _sum_session_minutes(sessions)
@@ -268,8 +291,8 @@ class RecentSessionsIntentHandler(AbstractRequestHandler):
 
         try:
             sessions = get_session_history_sync(linked.base_url, linked.api_key, days=7)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         if not sessions:
             speech = strings.RECENT_SESSIONS_NONE
@@ -312,8 +335,8 @@ class NextSessionIntentHandler(AbstractRequestHandler):
             # (/api/sessions/history) - the history endpoint only ever looks backward
             # from now, so it can never contain a future/scheduled session.
             sessions = list_all_sessions_sync(linked.base_url, linked.api_key)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         upcoming = _next_upcoming_session(sessions)
         if upcoming is None:
@@ -337,8 +360,8 @@ class CourseGoalsIntentHandler(AbstractRequestHandler):
 
         try:
             goals = list_course_goals_sync(linked.base_url, linked.api_key)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         if not goals:
             speech = strings.GOALS_NONE
@@ -361,8 +384,8 @@ class StudyProgramsIntentHandler(AbstractRequestHandler):
 
         try:
             programs = list_study_programs_sync(linked.base_url, linked.api_key)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         if not programs:
             speech = strings.PROGRAMS_NONE
@@ -467,8 +490,8 @@ class ProgramProgressIntentHandler(AbstractRequestHandler):
                 goals = list_course_goals_sync(base_url, linked.api_key)
                 completed_ects, total_ects = _program_progress(detail, courses, goals)
                 program_name = str(detail.get("name", query))
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         if total_ects == 0:
             speech = strings.program_progress_zero(program_name)
@@ -495,8 +518,8 @@ class SearchNotesIntentHandler(AbstractRequestHandler):
 
         try:
             notes = search_notes_sync(linked.base_url, linked.api_key, query)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         if not notes:
             speech = strings.search_notes_none(query)
@@ -519,8 +542,8 @@ class NotesOverviewIntentHandler(AbstractRequestHandler):
 
         try:
             notes = list_notes_sync(linked.base_url, linked.api_key)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         speech = strings.NOTES_NONE if not notes else strings.notes_overview(len(notes))
         return _answer(handler_input, speech, strings)
@@ -545,8 +568,8 @@ class CreateNoteIntentHandler(AbstractRequestHandler):
         title = strings.note_title(f"{datetime.now():%d.%m.%Y}")
         try:
             create_note_sync(linked.base_url, linked.api_key, title, content)
-        except StudyLifeApiError:
-            return _unreachable_response(handler_input, strings)
+        except StudyLifeApiError as exc:
+            return _api_failure_response(handler_input, strings, linked, exc)
 
         return _answer(handler_input, strings.NOTE_SAVED, strings)
 

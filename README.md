@@ -143,14 +143,30 @@ person. For this add-on:
 ```
 POST /internal/users/{user_id}/purge
 X-StudyLife-Shared-Secret: <STUDYLIFE_PURGE_SECRET>
-{"key_hashes": ["<sha256 hex of an API key issued to this add-on>", ...]}
+{"key_hashes": ["<sha256 hex of an API key issued to this add-on>", ...], "instance_url": "https://studyatrium.example"}
 ```
 
-This add-on stores no StudyAtrium user id, only the encrypted API key per code/token, so it
-decrypts each stored key, hashes it (SHA-256) and deletes every authorization code, access token
-and refresh token whose hash is listed (one transaction, idempotent, `204` also when nothing
-matched). `key_hashes` holds at most 50 lowercase hex digests (`422` otherwise); a wrong or
-missing secret is `401`. Only counts are logged, never keys or hashes.
+Every authorization code, access token and refresh token is stored with the StudyAtrium user id
+(`studylife_user_id`; from the assertion exchange for new links) next to the encrypted API key
+and the instance URL. A row is deleted when its decrypted key hashes (SHA-256) to a listed
+digest, **or** when its user id equals the one in the path and its instance (compared as an
+origin) equals `instance_url`: the second rule reaches a link whose key was revoked before the
+account was deleted, when `key_hashes` is empty. Without `instance_url` (an older server) only
+key hashes match, since a user id means a different person on another instance. One transaction,
+idempotent, `204` also when nothing matched. `key_hashes` may be empty, holds at most 50
+lowercase hex digests (`422` otherwise); unknown fields are ignored; a wrong or missing secret
+is `401`. Only counts are logged, never keys or hashes. The StudyAtrium server sends
+`instance_url` when its `Fido2:Origins` pins the public origin.
+
+**Existing rows.** The column is added in place on start. A row from before it has no user id
+until its refresh token is next used: the renewal asks the instance (`GET /api/auth/whoami`)
+whose key it is and records the id on the new tokens. If that call answers `401` the key is
+revoked or the account is gone, so all rows of the key are deleted and the renewal is refused;
+an outage or any other answer changes nothing. The skill-request path does the same on a `401`
+(and asks the user to link again). What remains: a legacy link that is never renewed again and
+whose key was revoked earlier has no user id and no listed hash, so an account deletion cannot
+find it; the hourly retention sweep removes it at its expiry, at most 90 days after its last
+renewal.
 
 | Variable | Purpose |
 |---|---|

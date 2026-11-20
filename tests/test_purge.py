@@ -149,6 +149,116 @@ def test_purge_skips_rows_it_cannot_decrypt(store, db_path) -> None:
     assert _count(db_path, "access_tokens") == 1
 
 
+async def _link_user(
+    store: OAuthStore, api_key: str, suffix: str, user_id: int | None, instance: str = _INSTANCE
+) -> None:
+    await store.save_authorization_code(f"code-{suffix}", api_key, instance, user_id)
+    await store.save_access_token(f"access-{suffix}", api_key, instance, user_id)
+    await store.save_refresh_token(f"refresh-{suffix}", api_key, instance, user_id)
+
+
+def test_purge_by_user_id_reaches_a_link_whose_key_was_revoked(store, db_path) -> None:
+    """The case that left rows behind: no key hash is sent any more, only the user id."""
+    asyncio.run(_link_user(store, "revoked-key", "a", 7))
+    asyncio.run(_link_user(store, "bob-key", "b", 8))
+
+    response = _client(store, _SECRET).post(
+        "/internal/users/7/purge",
+        json={"key_hashes": [], "instance_url": _INSTANCE},
+        headers=_HEADERS,
+    )
+
+    assert response.status_code == 204
+    assert asyncio.run(store.load_access_token("access-a")) is None
+    assert asyncio.run(store.consume_refresh_token("refresh-a")) is None
+    assert asyncio.run(store.consume_authorization_code("code-a")) is None
+    assert asyncio.run(store.load_access_token("access-b")) is not None
+
+
+def test_purge_by_user_id_never_crosses_instances(store) -> None:
+    asyncio.run(_link_user(store, "key-on-b", "b", 7, "https://other.example.org"))
+
+    deleted = asyncio.run(store.purge_by_key_hashes(frozenset(), user_id=7, instance_url=_INSTANCE))
+
+    assert deleted == 0
+    assert asyncio.run(store.load_access_token("access-b")) is not None
+
+
+def test_purge_by_user_id_compares_instances_as_origins(store) -> None:
+    asyncio.run(_link_user(store, "key", "a", 7, "https://Studylife.Example.com:443/"))
+
+    deleted = asyncio.run(
+        store.purge_by_key_hashes(frozenset(), user_id=7, instance_url=_INSTANCE + "/")
+    )
+
+    assert deleted == 3
+
+
+def test_user_id_alone_without_an_instance_matches_nothing(store) -> None:
+    """An older server sends no instance_url: only key hashes may match then, because the
+    same user id means a different person on another instance."""
+    asyncio.run(_link_user(store, "key", "a", 7))
+    client = _client(store, _SECRET)
+
+    response = client.post("/internal/users/7/purge", json={"key_hashes": []}, headers=_HEADERS)
+
+    assert response.status_code == 204
+    assert asyncio.run(store.load_access_token("access-a")) is not None
+
+
+def test_purge_ignores_rows_without_a_stored_user_id_unless_the_key_matches(store) -> None:
+    asyncio.run(_link_user(store, "legacy-key", "a", None))
+
+    assert (
+        asyncio.run(store.purge_by_key_hashes(frozenset(), user_id=7, instance_url=_INSTANCE)) == 0
+    )
+    assert (
+        asyncio.run(
+            store.purge_by_key_hashes(
+                frozenset({_sha("legacy-key")}), user_id=7, instance_url=_INSTANCE
+            )
+        )
+        == 3
+    )
+
+
+def test_older_server_body_with_unknown_fields_still_works(store) -> None:
+    response = _client(store, _SECRET).post(
+        "/internal/users/7/purge", json={"key_hashes": [], "extra": 1}, headers=_HEADERS
+    )
+    assert response.status_code == 204
+
+
+def test_learn_user_id_fills_only_rows_without_one(store, db_path) -> None:
+    asyncio.run(_link_user(store, "key", "a", None))
+    asyncio.run(_link_user(store, "other-key", "b", None))
+
+    asyncio.run(store.learn_user_id("key", 9))
+
+    assert asyncio.run(store.load_access_token("access-a")).user_id == 9
+    assert asyncio.run(store.load_access_token("access-b")).user_id is None
+    asyncio.run(store.learn_user_id("key", 10))  # never overwrites a known id
+    assert asyncio.run(store.load_access_token("access-a")).user_id == 9
+
+
+def test_migration_adds_the_user_id_column_to_an_existing_database(tmp_path) -> None:
+    db_path = tmp_path / "before.db"
+    with sqlite3.connect(db_path) as db:
+        for table, column in _TOKEN_TABLES:
+            db.execute(
+                f"CREATE TABLE {table} ({column} TEXT PRIMARY KEY, "
+                "encrypted_api_key BLOB NOT NULL, "
+                "studylife_instance_url TEXT NOT NULL, expires_at REAL NOT NULL)"
+            )
+    store = OAuthStore(str(db_path), _ENCRYPTION_KEY)
+    asyncio.run(store.initialize())
+    asyncio.run(store.initialize())
+
+    with sqlite3.connect(db_path) as db:
+        for table, _column in _TOKEN_TABLES:
+            assert "studylife_user_id" in {r[1] for r in db.execute(f"PRAGMA table_info({table})")}
+
+
 def _insert_expired_and_live(db_path) -> None:
     now = time.time()
     with sqlite3.connect(db_path) as db:

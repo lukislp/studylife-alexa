@@ -242,6 +242,8 @@ async def test_full_round_trip_authorize_to_token(client, monkeypatch: pytest.Mo
     assert linked is not None
     assert linked.base_url == CHOSEN_INSTANCE_URL
     assert linked.api_key == "fake-studylife-api-key"
+    # The user id from the assertion exchange is stored with the link (account deletion).
+    assert linked.user_id == 1
 
     # The authorization code is single-use.
     replay_response = client.post(
@@ -278,6 +280,97 @@ async def _fake_exchange_assertion(
         len(code_verifier) == 43
     )  # the verifier stashed at authorize() time, never sent via the browser
     return ExchangedAssertion(user_id=1, api_key="fake-studylife-api-key")
+
+
+def _refresh(client, token: str):
+    return client.post(
+        "/token",
+        data={
+            "grant_type": "refresh_token",
+            "refresh_token": token,
+            "client_id": ALEXA_CLIENT_ID,
+            "client_secret": ALEXA_CLIENT_SECRET,
+        },
+    )
+
+
+async def _legacy_store():
+    from studylife_alexa.config import Settings
+    from studylife_alexa.oauth_store import OAuthStore
+
+    settings = Settings()  # type: ignore[call-arg]
+    store = OAuthStore(settings.alexa_oauth_db_path, settings.alexa_token_encryption_key or "")
+    await store.initialize()
+    return store
+
+
+async def test_refresh_of_a_legacy_row_learns_the_user_id(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A link from before the user id was stored has none; the next refresh asks the instance
+    whose key it is and records it on the new tokens."""
+    from studylife_alexa.client import KeyOwner
+
+    seen: list[tuple[str, str]] = []
+
+    async def fake_whoami(base_url: str, api_key: str) -> KeyOwner:
+        seen.append((base_url, api_key))
+        return KeyOwner(user_id=42)
+
+    monkeypatch.setattr(oauth_provider, "whoami", fake_whoami)
+    store = await _legacy_store()
+    await store.save_refresh_token("legacy-refresh-1", "legacy-key-1", CHOSEN_INSTANCE_URL)
+
+    response = _refresh(client, "legacy-refresh-1")
+
+    assert response.status_code == 200
+    assert seen == [(CHOSEN_INSTANCE_URL, "legacy-key-1")]
+    body = response.json()
+    assert (await store.load_access_token(body["access_token"])).user_id == 42
+    assert (await store.consume_refresh_token(body["refresh_token"])).user_id == 42
+
+
+async def test_refresh_with_a_rejected_key_drops_every_row_of_the_key(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from studylife_alexa.client import KeyOwner
+
+    async def rejected(base_url: str, api_key: str) -> KeyOwner:
+        return KeyOwner(rejected=True)
+
+    monkeypatch.setattr(oauth_provider, "whoami", rejected)
+    store = await _legacy_store()
+    await store.save_refresh_token("dead-refresh", "dead-key", CHOSEN_INSTANCE_URL, 5)
+    await store.save_access_token("dead-access", "dead-key", CHOSEN_INSTANCE_URL, 5)
+    await store.save_refresh_token("live-refresh", "live-key", CHOSEN_INSTANCE_URL, 6)
+
+    response = _refresh(client, "dead-refresh")
+
+    assert response.status_code == 400
+    assert response.json() == {"error": "invalid_grant"}
+    assert await store.load_access_token("dead-access") is None
+    assert await store.consume_refresh_token("dead-refresh") is None
+    assert await store.consume_refresh_token("live-refresh") is not None
+
+
+async def test_refresh_keeps_the_link_when_the_instance_is_unreachable(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An outage is not a revocation: the user stays linked and the id is learned later."""
+    from studylife_alexa.client import KeyOwner
+
+    async def unreachable(base_url: str, api_key: str) -> KeyOwner:
+        return KeyOwner()
+
+    monkeypatch.setattr(oauth_provider, "whoami", unreachable)
+    store = await _legacy_store()
+    await store.save_refresh_token("outage-refresh", "outage-key", CHOSEN_INSTANCE_URL)
+
+    response = _refresh(client, "outage-refresh")
+
+    assert response.status_code == 200
+    linked = await store.load_access_token(response.json()["access_token"])
+    assert linked is not None and linked.user_id is None
 
 
 @pytest.fixture
