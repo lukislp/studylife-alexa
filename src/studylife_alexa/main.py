@@ -20,6 +20,7 @@ from studylife_alexa.oauth_store import OAuthStore
 from studylife_alexa.purge_routes import register_purge_routes
 from studylife_alexa.retention import run_retention_sweep
 from studylife_alexa.skill import build_skill
+from studylife_alexa.tls import tls_files, tls_listener
 
 _settings = Settings()  # type: ignore[call-arg]
 
@@ -39,7 +40,19 @@ async def _lifespan(app: FastAPI):
     await _store.initialize()
     sweep = asyncio.create_task(run_retention_sweep(_store))
     try:
-        yield
+        # HTTPS listener for the StudyAtrium purge hop (tls.py): only when the certificate files
+        # are configured. A failure here raises, so the process exits instead of running without
+        # the TLS listener it was asked for.
+        files = tls_files(
+            _settings.studylife_alexa_tls_cert_file, _settings.studylife_alexa_tls_key_file
+        )
+        async with tls_listener(
+            app,
+            files,
+            _settings.studylife_alexa_tls_port,
+            _settings.studylife_alexa_tls_reload_interval_seconds,
+        ):
+            yield
     finally:
         sweep.cancel()
         with contextlib.suppress(asyncio.CancelledError):
