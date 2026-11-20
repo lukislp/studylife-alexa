@@ -28,6 +28,7 @@ expiry (at most 90 days after its last refresh), and is matched by key hash in t
 
 from __future__ import annotations
 
+import hmac
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -437,19 +438,31 @@ class OAuthStore:
     async def purge_by_api_key(self, api_key: str) -> int:
         """Drop every row holding this API key: StudyAtrium answered 401 for it, so the
         key is revoked or its account is gone and the rows could only be renewed in vain."""
-        return await self.purge_by_key_hashes(frozenset({token_fingerprint(api_key)}))
+        deleted = 0
+        async with aiosqlite.connect(self._db_path) as db:
+            for table in _KEY_BEARING_TABLES:
+                cursor = await db.execute(f"SELECT rowid, encrypted_api_key FROM {table}")
+                holding = [
+                    rowid
+                    for rowid, encrypted in await cursor.fetchall()
+                    if _holds_key(self._fernet, encrypted, api_key)
+                ]
+                for rowid in holding:
+                    await db.execute(f"DELETE FROM {table} WHERE rowid = ?", (rowid,))
+                deleted += len(holding)
+            await db.commit()
+        return deleted
 
     async def learn_user_id(self, api_key: str, user_id: int) -> None:
         """Backfill for rows written before the user id was stored: record it on every row
         of this API key that still has none."""
-        fingerprint = token_fingerprint(api_key)
         async with aiosqlite.connect(self._db_path) as db:
             for table in _KEY_BEARING_TABLES:
                 cursor = await db.execute(
                     f"SELECT rowid, encrypted_api_key FROM {table} WHERE studylife_user_id IS NULL"
                 )
                 for rowid, encrypted in await cursor.fetchall():
-                    if self._key_hash(encrypted) == fingerprint:
+                    if _holds_key(self._fernet, encrypted, api_key):
                         await db.execute(
                             f"UPDATE {table} SET studylife_user_id = ? WHERE rowid = ?",
                             (user_id, rowid),
@@ -486,6 +499,15 @@ def _key_hash(fernet: Fernet, encrypted_api_key: bytes) -> str | None:
     return token_fingerprint(issued_token)
 
 
+def _holds_key(fernet: Fernet, encrypted_api_key: bytes, api_key: str) -> bool:
+    """True when the encrypted value is exactly `api_key` (an undecryptable one never is)."""
+    try:
+        stored = fernet.decrypt(encrypted_api_key).decode()
+    except InvalidToken:
+        return False
+    return hmac.compare_digest(stored.encode(), api_key.encode())
+
+
 def _row_matches(
     row_key_hash: str | None,
     row_instance: str,
@@ -507,13 +529,12 @@ def purge_by_api_key_sync(db_path: str, encryption_key: str, api_key: str) -> in
     (see load_access_token_sync for why that path is synchronous): the Alexa handler saw a
     401 from StudyAtrium for this key and drops what holds it."""
     fernet = Fernet(encryption_key.encode())
-    fingerprint = frozenset({token_fingerprint(api_key)})
     deleted = 0
     with sqlite3.connect(db_path) as db:
         for table in _KEY_BEARING_TABLES:
             rows = db.execute(f"SELECT rowid, encrypted_api_key FROM {table}").fetchall()
             for rowid, encrypted in rows:
-                if _key_hash(fernet, encrypted) in fingerprint:
+                if _holds_key(fernet, encrypted, api_key):
                     db.execute(f"DELETE FROM {table} WHERE rowid = ?", (rowid,))
                     deleted += 1
     return deleted
